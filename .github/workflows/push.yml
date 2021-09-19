@@ -1,9 +1,7 @@
-name: Go
+name: push
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
     branches: [ master ]
 
 jobs:
@@ -54,7 +52,7 @@ jobs:
       run: go install github.com/reviewdog/reviewdog/cmd/reviewdog@latest
 
     - name: go vet
-      run: go vet ./... | reviewdog -f=govet -diff="git diff HEAD" -reporter=github-pr-review
+      run: go vet ./... | reviewdog -f=govet -diff="git diff FETCH_HEAD" -reporter=local
 
     - name: staticcheck
-      run: staticcheck ./... | reviewdog -f=staticcheck -diff="git diff HEAD" -reporter=github-pr-review
+      run: staticcheck ./... | reviewdog -f=staticcheck -diff="git diff FETCH_HEAD" -reporter=local
