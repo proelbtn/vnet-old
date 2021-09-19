@@ -5,12 +5,24 @@ import (
 )
 
 type Network struct {
-	ID   uuid.UUID
-	Name string
+	ID          uuid.UUID
+	Name        string
+	Environment *Environment
 }
 
 func NewNetwork(name string) (*Network, error) {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Network{
-		Name: name,
+		ID:          id,
+		Name:        name,
+		Environment: nil,
 	}, nil
+}
+
+func (v *Network) SetEnvironment(env *Environment) {
+	v.Environment = env
 }
