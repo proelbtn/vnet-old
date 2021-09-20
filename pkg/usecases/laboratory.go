@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/gateways"
 )
 
@@ -44,28 +45,19 @@ func (v *LaboratoryUsecase) CreateLaboratory(req WritableLaboratory) (*Laborator
 	return NewLaboratory(laboratory), nil
 }
 
-func (v *LaboratoryUsecase) DeleteLaboratory(identifier string) error {
+func (v *LaboratoryUsecase) findLaboratoryByIdentifier(identifier string) (*entities.Laboratory, error) {
 	if id, err := uuid.Parse(identifier); err == nil {
-		return v.deleteLaboratoryWithID(id)
+		return v.laboratoryGateway.FindByID(id)
 	} else {
-		return v.deleteLaboratoryWithName(identifier)
+		return v.laboratoryGateway.FindByName(identifier)
 	}
 }
 
-func (v *LaboratoryUsecase) deleteLaboratoryWithID(id uuid.UUID) error {
-	laboratory, err := v.laboratoryGateway.FindByID(id)
+func (v *LaboratoryUsecase) DeleteLaboratory(identifier string) error {
+	lab, err := v.findLaboratoryByIdentifier(identifier)
 	if err != nil {
 		return err
 	}
 
-	return v.laboratoryGateway.Delete(laboratory)
-}
-
-func (v *LaboratoryUsecase) deleteLaboratoryWithName(name string) error {
-	laboratory, err := v.laboratoryGateway.FindByName(name)
-	if err != nil {
-		return ErrLaboratoryNotFound
-	}
-
-	return v.laboratoryGateway.Delete(laboratory)
+	return v.laboratoryGateway.Delete(lab)
 }
