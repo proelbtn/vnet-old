@@ -72,7 +72,7 @@ func GetContainerID(spec *entities.Container) string {
 	return spec.ID.String()
 }
 
-func (v *ContainerManager) Create(spec *entities.Container) error {
+func (v *ContainerManager) Create(spec *entities.Container) (uint32, error) {
 	return v.createContainer(spec)
 }
 
@@ -88,13 +88,13 @@ func (v *ContainerManager) Delete(spec *entities.Container) error {
 	return v.deleteContainer(spec)
 }
 
-func (v *ContainerManager) createContainer(spec *entities.Container) error {
+func (v *ContainerManager) createContainer(spec *entities.Container) (uint32, error) {
 	ctx := namespaces.WithNamespace(context.Background(), GetNamespaceName(spec))
 	id := GetContainerID(spec)
 
 	image, err := v.client.Pull(ctx, spec.ImageName, containerd.WithPullUnpack)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	container, err := v.client.NewContainer(
@@ -103,15 +103,15 @@ func (v *ContainerManager) createContainer(spec *entities.Container) error {
 		containerd.WithNewSpec(oci.WithImageConfig(image)),
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	_, err = container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	return task.Pid(), nil
 }
 
 func (v *ContainerManager) findContainer(ctx context.Context, id string) (containerd.Container, error) {

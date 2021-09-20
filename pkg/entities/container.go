@@ -9,7 +9,9 @@ type Container struct {
 	Name       string
 	Laboratory *Laboratory
 
-	ImageName string
+	ImageName            string
+	EnvironmentVariables map[string]string
+	Ports                []*Port
 }
 
 func NewContainer(name string, imageName string) (*Container, error) {
@@ -19,10 +21,12 @@ func NewContainer(name string, imageName string) (*Container, error) {
 	}
 
 	return &Container{
-		ID:         id,
-		Name:       name,
-		Laboratory: nil,
-		ImageName:  imageName,
+		ID:                   id,
+		Name:                 name,
+		Laboratory:           nil,
+		ImageName:            imageName,
+		EnvironmentVariables: make(map[string]string),
+		Ports:                make([]*Port, 0),
 	}, nil
 }
 

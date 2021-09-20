@@ -26,7 +26,7 @@ func main() {
 		panic(err)
 	}
 
-	err = manager.Create(container)
+	_, err = manager.Create(container)
 	if err != nil {
 		panic(err)
 	}

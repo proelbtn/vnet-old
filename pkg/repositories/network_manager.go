@@ -31,6 +31,10 @@ func (v *NetworkManager) Delete(network *entities.Network) error {
 	return v.deleteBridge(network)
 }
 
+func (v *NetworkManager) AttachPorts(pid uint32, links []*entities.Port) error {
+	return nil
+}
+
 func (v *NetworkManager) createBridge(network *entities.Network) error {
 	attrs := netlink.NewLinkAttrs()
 	attrs.Name = GetBridgeName(network)
