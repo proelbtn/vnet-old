@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/gateways"
+	"github.com/proelbtn/vnet/pkg/usecases/managers"
 )
 
 var (
@@ -15,11 +16,13 @@ var (
 
 type LaboratoryUsecase struct {
 	laboratoryGateway gateways.LaboratoryGateway
+	laboratoryManager managers.LaboratoryManager
 }
 
-func NewLaboratoryUsecase(laboratoryGateway gateways.LaboratoryGateway) *LaboratoryUsecase {
+func NewLaboratoryUsecase(laboratoryGateway gateways.LaboratoryGateway, laboratoryManager managers.LaboratoryManager) *LaboratoryUsecase {
 	return &LaboratoryUsecase{
 		laboratoryGateway: laboratoryGateway,
+		laboratoryManager: laboratoryManager,
 	}
 }
 
@@ -60,4 +63,22 @@ func (v *LaboratoryUsecase) DeleteLaboratory(identifier string) error {
 	}
 
 	return v.laboratoryGateway.Delete(lab)
+}
+
+func (v *LaboratoryUsecase) StartLaboratory(identifier string) error {
+	lab, err := v.findLaboratoryByIdentifier(identifier)
+	if err != nil {
+		return err
+	}
+
+	return v.laboratoryManager.Start(lab)
+}
+
+func (v *LaboratoryUsecase) StopLaboratory(identifier string) error {
+	lab, err := v.findLaboratoryByIdentifier(identifier)
+	if err != nil {
+		return err
+	}
+
+	return v.laboratoryManager.Stop(lab)
 }
