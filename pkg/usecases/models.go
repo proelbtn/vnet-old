@@ -5,13 +5,13 @@ import (
 	"github.com/proelbtn/vnet/pkg/entities"
 )
 
-type WritableEnvironment struct {
+type WritableLaboratory struct {
 	Name       string
 	Containers []*WritableContainer
 	Networks   []*WritableNetwork
 }
 
-func (v *WritableEnvironment) ToEntity() (*entities.Environment, error) {
+func (v *WritableLaboratory) ToEntity() (*entities.Laboratory, error) {
 	networks := make([]*entities.Network, len(v.Networks))
 	for i := range networks {
 		network, err := v.Networks[i].ToEntity()
@@ -30,15 +30,16 @@ func (v *WritableEnvironment) ToEntity() (*entities.Environment, error) {
 		containers[i] = container
 	}
 
-	return entities.NewEnvironment(v.Name, containers, networks)
+	return entities.NewLaboratory(v.Name, containers, networks)
 }
 
 type WritableContainer struct {
-	Name string
+	Name      string
+	ImageName string
 }
 
 func (v *WritableContainer) ToEntity() (*entities.Container, error) {
-	return entities.NewContainer(v.Name)
+	return entities.NewContainer(v.Name, v.ImageName)
 }
 
 type WritableNetwork struct {
@@ -49,41 +50,43 @@ func (v *WritableNetwork) ToEntity() (*entities.Network, error) {
 	return entities.NewNetwork(v.Name)
 }
 
-type Environment struct {
+type Laboratory struct {
 	ID         uuid.UUID
 	Name       string
 	Containers []*Container
 	Networks   []*Network
 }
 
-func NewEnvironment(environment *entities.Environment) *Environment {
-	networks := make([]*Network, len(environment.Networks))
-	for i := range environment.Networks {
-		networks[i] = NewNetwork(environment.Networks[i])
+func NewLaboratory(laboratory *entities.Laboratory) *Laboratory {
+	networks := make([]*Network, len(laboratory.Networks))
+	for i := range laboratory.Networks {
+		networks[i] = NewNetwork(laboratory.Networks[i])
 	}
 
-	containers := make([]*Container, len(environment.Containers))
-	for i := range environment.Containers {
-		containers[i] = NewContainer(environment.Containers[i])
+	containers := make([]*Container, len(laboratory.Containers))
+	for i := range laboratory.Containers {
+		containers[i] = NewContainer(laboratory.Containers[i])
 	}
 
-	return &Environment{
-		ID:         environment.ID,
-		Name:       environment.Name,
+	return &Laboratory{
+		ID:         laboratory.ID,
+		Name:       laboratory.Name,
 		Containers: containers,
 		Networks:   networks,
 	}
 }
 
 type Container struct {
-	ID   uuid.UUID
-	Name string
+	ID        uuid.UUID
+	Name      string
+	ImageName string
 }
 
 func NewContainer(container *entities.Container) *Container {
 	return &Container{
-		ID:   container.ID,
-		Name: container.Name,
+		ID:        container.ID,
+		Name:      container.Name,
+		ImageName: container.ImageName,
 	}
 }
 

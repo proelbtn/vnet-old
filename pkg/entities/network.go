@@ -5,9 +5,9 @@ import (
 )
 
 type Network struct {
-	ID          uuid.UUID
-	Name        string
-	Environment *Environment
+	ID         uuid.UUID
+	Name       string
+	Laboratory *Laboratory
 }
 
 func NewNetwork(name string) (*Network, error) {
@@ -17,12 +17,12 @@ func NewNetwork(name string) (*Network, error) {
 	}
 
 	return &Network{
-		ID:          id,
-		Name:        name,
-		Environment: nil,
+		ID:         id,
+		Name:       name,
+		Laboratory: nil,
 	}, nil
 }
 
-func (v *Network) SetEnvironment(env *Environment) {
-	v.Environment = env
+func (v *Network) SetLaboratory(env *Laboratory) {
+	v.Laboratory = env
 }
