@@ -24,7 +24,7 @@ func main() {
 
 	container, err := entities.NewContainer(
 		"test",
-		"docker.io/library/redis:alpine",
+		"docker.io/nicolaka/netshoot:latest",
 	)
 	if err != nil {
 		panic(err)
@@ -51,7 +51,7 @@ func main() {
 
 	manager.Start(lab)
 
-	time.Sleep(5 * time.Second)
+	time.Sleep(300 * time.Second)
 
 	manager.Stop(lab)
 }

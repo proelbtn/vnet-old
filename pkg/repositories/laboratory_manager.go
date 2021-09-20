@@ -33,7 +33,7 @@ func (v *LaboratoryManager) Start(lab *entities.Laboratory) error {
 			return err
 		}
 
-		err = v.networkManager.AttachPorts(pid, container.Ports)
+		err = v.networkManager.AttachPorts(int(pid), container.Ports)
 		if err != nil {
 			return err
 		}
