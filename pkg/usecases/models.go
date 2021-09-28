@@ -10,6 +10,14 @@ type WritableLaboratory struct {
 	Networks   []*WritableNetwork
 }
 
+func NewWritableLaboratory(name string, containers []*WritableContainer, networks []*WritableNetwork) *WritableLaboratory {
+	return &WritableLaboratory{
+		Name:       name,
+		Containers: containers,
+		Networks:   networks,
+	}
+}
+
 func (v *WritableLaboratory) ToEntity() (*entities.Laboratory, error) {
 	networks := make([]*entities.Network, len(v.Networks))
 	for i := range networks {
@@ -21,7 +29,7 @@ func (v *WritableLaboratory) ToEntity() (*entities.Laboratory, error) {
 	}
 
 	containers := make([]*entities.Container, len(v.Containers))
-	for i := range networks {
+	for i := range containers {
 		container, err := v.Containers[i].ToEntity()
 		if err != nil {
 			return nil, err
@@ -37,12 +45,25 @@ type WritableContainer struct {
 	ImageName string
 }
 
+func NewWritableContainer(name string, imageName string) *WritableContainer {
+	return &WritableContainer{
+		Name:      name,
+		ImageName: imageName,
+	}
+}
+
 func (v *WritableContainer) ToEntity() (*entities.Container, error) {
 	return entities.NewContainer(v.Name, v.ImageName, nil)
 }
 
 type WritableNetwork struct {
 	Name string
+}
+
+func NewWritableNetwork(name string) *WritableNetwork {
+	return &WritableNetwork{
+		Name: name,
+	}
 }
 
 func (v *WritableNetwork) ToEntity() (*entities.Network, error) {
