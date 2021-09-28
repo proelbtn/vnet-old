@@ -19,6 +19,7 @@ func main() {
 	container, err := entities.NewContainer(
 		"test",
 		"docker.io/library/redis:alpine",
+		nil,
 	)
 	if err != nil {
 		panic(err)

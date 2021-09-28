@@ -2,6 +2,9 @@ package repositories
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 
@@ -21,21 +24,25 @@ func NewNetworkManger() *NetworkManager {
 	return &NetworkManager{}
 }
 
+func hashForNetworkManager(s string) string {
+	hasher := sha1.New()
+	hasher.Write([]byte(s))
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
 func GetBridgeName(network *entities.Network) string {
-	idStr := network.ID.String()
-	return fmt.Sprintf("br-%s%s", idStr[:8], idStr[9:13])
+	idStr := hashForNetworkManager(network.GetUniqueName())
+	return fmt.Sprintf("br-%s", idStr[:12])
 }
 
 func GetPortName(port *entities.Port) string {
-	idStr := port.ID.String()
-	return fmt.Sprintf("po-%s%s", idStr[:8], idStr[9:13])
+	idStr := hashForNetworkManager(port.GetUniqueName())
+	return fmt.Sprintf("po-%s", idStr[:12])
 }
 
 func (v *NetworkManager) getLogger(network *entities.Network) *zap.Logger {
 	return zap.L().With(
-		zap.String("ID", network.ID.String()),
 		zap.String("Name", network.Name),
-		zap.String("Laboratory.ID", network.Laboratory.ID.String()),
 		zap.String("Laboratory.Name", network.Laboratory.Name),
 	)
 }
@@ -70,7 +77,7 @@ func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*enti
 
 	logger.Debug("creating ports")
 	for _, port := range ports {
-		logger.Debug("creating port", zap.String("ID", port.ID.String()), zap.String("Name", port.Name))
+		logger.Debug("creating port", zap.String("Name", port.Name))
 
 		attrs := netlink.NewLinkAttrs()
 		attrs.Name = GetPortName(port)
@@ -122,6 +129,27 @@ func (v *NetworkManager) createBridge(network *entities.Network) error {
 
 	logger.Debug("creating bridge")
 
+	logger.Debug("checking bridge is already created")
+	link, err := netlink.LinkByName(GetBridgeName(network))
+	if err != nil {
+		switch err.(type) {
+		case netlink.LinkNotFoundError:
+			// link may not exist, skipped
+		default:
+			return err
+		}
+	}
+
+	if link != nil {
+		if link.Type() != "bridge" {
+			return errors.New("link found, but not brdige")
+		}
+		logger.Debug("bridge is already created, skipped")
+		return nil
+	}
+
+	logger.Debug("bridge is not already created, creating")
+
 	attrs := netlink.NewLinkAttrs()
 	attrs.Name = GetBridgeName(network)
 	attrs.Flags = attrs.Flags | net.FlagUp
@@ -130,7 +158,7 @@ func (v *NetworkManager) createBridge(network *entities.Network) error {
 		LinkAttrs: attrs,
 	}
 
-	err := netlink.LinkAdd(bridge)
+	err = netlink.LinkAdd(bridge)
 	if err != nil {
 		return err
 	}
@@ -147,11 +175,17 @@ func (v *NetworkManager) deleteBridge(network *entities.Network) error {
 	name := GetBridgeName(network)
 	link, err := netlink.LinkByName(name)
 	if err != nil {
-		return err
+		switch err.(type) {
+		case netlink.LinkNotFoundError:
+			logger.Warn("link not found")
+			return nil
+		default:
+			return err
+		}
 	}
 
 	if link.Type() != "bridge" {
-		logger.Warn("selected link isn't bridge", zap.Any("link", link))
+		return fmt.Errorf("link found, but not bridge")
 	}
 
 	err = netlink.LinkDel(link)

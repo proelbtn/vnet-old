@@ -22,11 +22,14 @@ func NewLaboratoryManager(containerManager managers.ContainerManager, networkMan
 	}
 }
 
-func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory) error {
-	logger := zap.L().With(
-		zap.String("ID", lab.ID.String()),
+func (v *LaboratoryManager) getLogger(lab *entities.Laboratory) *zap.Logger {
+	return zap.L().With(
 		zap.String("Name", lab.Name),
 	)
+}
+
+func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory) error {
+	logger := v.getLogger(lab)
 
 	logger.Debug("starting Laboratory")
 
@@ -61,10 +64,7 @@ func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory)
 }
 
 func (v *LaboratoryManager) Stop(ctx context.Context, lab *entities.Laboratory) error {
-	logger := zap.L().With(
-		zap.String("ID", lab.ID.String()),
-		zap.String("Name", lab.Name),
-	)
+	logger := v.getLogger(lab)
 
 	logger.Debug("stopping Laboratory")
 

@@ -31,14 +31,6 @@ func main() {
 		panic(err)
 	}
 
-	container, err := entities.NewContainer(
-		"test",
-		"docker.io/nicolaka/netshoot:latest",
-	)
-	if err != nil {
-		panic(err)
-	}
-
 	addr, err := entities.NewIPAddress("192.168.0.1/24")
 	if err != nil {
 		panic(err)
@@ -49,7 +41,14 @@ func main() {
 		panic(err)
 	}
 
-	container.Ports = append(container.Ports, port)
+	container, err := entities.NewContainer(
+		"test",
+		"docker.io/nicolaka/netshoot:latest",
+		[]*entities.Port{port},
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	lab, err := entities.NewLaboratory("test", []*entities.Container{container}, []*entities.Network{network})
 	if err != nil {

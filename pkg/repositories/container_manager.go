@@ -70,6 +70,13 @@ func FindContainerdSocketPath() (string, error) {
 	return "", ErrNotFound
 }
 
+func (v *ContainerManager) getLogger(con *entities.Container) *zap.Logger {
+	return zap.L().With(
+		zap.String("Name", con.Name),
+		zap.String("Laboratory.Name", con.Laboratory.Name),
+	)
+}
+
 func (v *ContainerManager) Create(ctx context.Context, spec *entities.Container) (uint32, error) {
 	return v.createContainer(ctx, spec)
 }
@@ -126,12 +133,7 @@ func (v *ContainerManager) getImage(ctx context.Context, name string) (container
 
 func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.Container) (uint32, error) {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
-	logger := zap.L().With(
-		zap.String("ID", spec.ID.String()),
-		zap.String("Name", spec.Name),
-		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
-		zap.String("Laboratory.Name", spec.Laboratory.Name),
-	)
+	logger := v.getLogger(spec)
 
 	logger.Debug("creating Container")
 	name := getContainerName(spec)
@@ -164,12 +166,7 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 
 func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
-	logger := zap.L().With(
-		zap.String("ID", spec.ID.String()),
-		zap.String("Name", spec.Name),
-		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
-		zap.String("Laboratory.Name", spec.Laboratory.Name),
-	)
+	logger := v.getLogger(spec)
 
 	logger.Debug("deleting Container")
 	name := getContainerName(spec)
@@ -199,12 +196,7 @@ func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.C
 
 func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
-	logger := zap.L().With(
-		zap.String("ID", spec.ID.String()),
-		zap.String("Name", spec.Name),
-		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
-		zap.String("Laboratory.Name", spec.Laboratory.Name),
-	)
+	logger := v.getLogger(spec)
 
 	logger.Debug("starting task")
 	name := getContainerName(spec)
@@ -227,12 +219,7 @@ func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Contain
 
 func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
-	logger := zap.L().With(
-		zap.String("ID", spec.ID.String()),
-		zap.String("Name", spec.Name),
-		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
-		zap.String("Laboratory.Name", spec.Laboratory.Name),
-	)
+	logger := v.getLogger(spec)
 
 	logger.Debug("killing task")
 	name := getContainerName(spec)

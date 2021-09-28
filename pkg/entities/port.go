@@ -1,35 +1,32 @@
 package entities
 
 import (
+	"fmt"
 	"net"
-
-	"github.com/google/uuid"
 )
 
 type Port struct {
-	ID      uuid.UUID
-	Name    string
-	Network *Network
-	IPAddrs []*net.IPNet
+	Name      string
+	Network   *Network
+	Container *Container
+	IPAddrs   []*net.IPNet
 }
 
 func NewPort(name string, network *Network, addrs []*net.IPNet) (*Port, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	err = validateName(name)
+	err := validateName(name)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Port{
-		ID:      id,
 		Name:    name,
 		Network: network,
 		IPAddrs: addrs,
 	}, nil
+}
+
+func (v *Port) SetContainer(con *Container) {
+	v.Container = con
 }
 
 func NewIPAddress(cidr string) (*net.IPNet, error) {
@@ -39,4 +36,8 @@ func NewIPAddress(cidr string) (*net.IPNet, error) {
 	}
 	ipNet.IP = ip
 	return ipNet, nil
+}
+
+func (v *Port) GetUniqueName() string {
+	return fmt.Sprintf("%s/%s", v.Container.GetUniqueName(), v.Name)
 }

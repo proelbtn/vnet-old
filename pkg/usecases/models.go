@@ -1,7 +1,6 @@
 package usecases
 
 import (
-	"github.com/google/uuid"
 	"github.com/proelbtn/vnet/pkg/entities"
 )
 
@@ -39,7 +38,7 @@ type WritableContainer struct {
 }
 
 func (v *WritableContainer) ToEntity() (*entities.Container, error) {
-	return entities.NewContainer(v.Name, v.ImageName)
+	return entities.NewContainer(v.Name, v.ImageName, nil)
 }
 
 type WritableNetwork struct {
@@ -51,7 +50,6 @@ func (v *WritableNetwork) ToEntity() (*entities.Network, error) {
 }
 
 type Laboratory struct {
-	ID         uuid.UUID
 	Name       string
 	Containers []*Container
 	Networks   []*Network
@@ -69,7 +67,6 @@ func NewLaboratory(laboratory *entities.Laboratory) *Laboratory {
 	}
 
 	return &Laboratory{
-		ID:         laboratory.ID,
 		Name:       laboratory.Name,
 		Containers: containers,
 		Networks:   networks,
@@ -77,27 +74,23 @@ func NewLaboratory(laboratory *entities.Laboratory) *Laboratory {
 }
 
 type Container struct {
-	ID        uuid.UUID
 	Name      string
 	ImageName string
 }
 
 func NewContainer(container *entities.Container) *Container {
 	return &Container{
-		ID:        container.ID,
 		Name:      container.Name,
 		ImageName: container.ImageName,
 	}
 }
 
 type Network struct {
-	ID   uuid.UUID
 	Name string
 }
 
 func NewNetwork(network *entities.Network) *Network {
 	return &Network{
-		ID:   network.ID,
 		Name: network.Name,
 	}
 }

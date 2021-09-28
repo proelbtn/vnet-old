@@ -1,29 +1,18 @@
 package entities
 
-import (
-	"github.com/google/uuid"
-)
-
 type Laboratory struct {
-	ID         uuid.UUID
 	Name       string
 	Containers []*Container
 	Networks   []*Network
 }
 
 func NewLaboratory(name string, containers []*Container, networks []*Network) (*Laboratory, error) {
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return nil, err
-	}
-
-	err = validateName(name)
+	err := validateName(name)
 	if err != nil {
 		return nil, err
 	}
 
 	lab := &Laboratory{
-		ID:   id,
 		Name: name,
 	}
 
@@ -39,4 +28,8 @@ func NewLaboratory(name string, containers []*Container, networks []*Network) (*
 	lab.Networks = networks
 
 	return lab, nil
+}
+
+func (v *Laboratory) GetUniqueName() string {
+	return v.Name
 }

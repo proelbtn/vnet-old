@@ -1,11 +1,8 @@
 package entities
 
-import (
-	"github.com/google/uuid"
-)
+import "fmt"
 
 type Container struct {
-	ID         uuid.UUID
 	Name       string
 	Laboratory *Laboratory
 
@@ -14,27 +11,32 @@ type Container struct {
 	Ports                []*Port
 }
 
-func NewContainer(name string, imageName string) (*Container, error) {
-	id, err := uuid.NewRandom()
+func NewContainer(name string, imageName string, ports []*Port) (*Container, error) {
+	err := validateName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	err = validateName(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Container{
-		ID:                   id,
+	con := &Container{
 		Name:                 name,
 		Laboratory:           nil,
 		ImageName:            imageName,
 		EnvironmentVariables: make(map[string]string),
 		Ports:                make([]*Port, 0),
-	}, nil
+	}
+
+	for _, port := range ports {
+		port.Container = con
+	}
+	con.Ports = ports
+
+	return con, nil
 }
 
 func (v *Container) SetLaboratory(env *Laboratory) {
 	v.Laboratory = env
+}
+
+func (v *Container) GetUniqueName() string {
+	return fmt.Sprintf("%s/%s", v.Laboratory.GetUniqueName(), v.Name)
 }
