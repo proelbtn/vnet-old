@@ -10,15 +10,10 @@ type Port struct {
 	ID      uuid.UUID
 	Name    string
 	Network *Network
-	IPAddrs []*Address
+	IPAddrs []*net.IPNet
 }
 
-type Address struct {
-	Addr *net.IP
-	Net  *net.IPNet
-}
-
-func NewPort(name string, network *Network, addrs []*Address) (*Port, error) {
+func NewPort(name string, network *Network, addrs []*net.IPNet) (*Port, error) {
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return nil, err
@@ -35,4 +30,13 @@ func NewPort(name string, network *Network, addrs []*Address) (*Port, error) {
 		Network: network,
 		IPAddrs: addrs,
 	}, nil
+}
+
+func NewIPAddress(cidr string) (*net.IPNet, error) {
+	ip, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		panic(err)
+	}
+	ipNet.IP = ip
+	return ipNet, nil
 }

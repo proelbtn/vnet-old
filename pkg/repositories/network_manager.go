@@ -106,6 +106,12 @@ func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*enti
 		if err != nil {
 			return err
 		}
+
+		for _, addr := range port.IPAddrs {
+			containerNsHandler.AddrAdd(peer, &netlink.Addr{
+				IPNet: addr,
+			})
+		}
 	}
 
 	return nil

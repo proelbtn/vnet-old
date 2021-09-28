@@ -39,14 +39,12 @@ func main() {
 		panic(err)
 	}
 
-	addr, net, err := net.ParseCIDR("192.168.0.1/24")
+	addr, err := entities.NewIPAddress("192.168.0.1/24")
 	if err != nil {
 		panic(err)
 	}
 
-	port, err := entities.NewPort("eth0", network, []*entities.Address{
-		{Addr: &addr, Net: net},
-	})
+	port, err := entities.NewPort("eth0", network, []*net.IPNet{addr})
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +61,7 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	err = manager.Stop(ctx, lab)
 	if err != nil {
