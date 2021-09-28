@@ -17,6 +17,11 @@ func NewLaboratory(name string, containers []*Container, networks []*Network) (*
 		return nil, err
 	}
 
+	err = validateName(name)
+	if err != nil {
+		return nil, err
+	}
+
 	lab := &Laboratory{
 		ID:   id,
 		Name: name,

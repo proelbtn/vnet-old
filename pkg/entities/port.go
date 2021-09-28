@@ -24,6 +24,11 @@ func NewPort(name string, network *Network, addrs []*Address) (*Port, error) {
 		return nil, err
 	}
 
+	err = validateName(name)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Port{
 		ID:      id,
 		Name:    name,

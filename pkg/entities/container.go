@@ -20,6 +20,11 @@ func NewContainer(name string, imageName string) (*Container, error) {
 		return nil, err
 	}
 
+	err = validateName(name)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Container{
 		ID:                   id,
 		Name:                 name,

@@ -16,6 +16,11 @@ func NewNetwork(name string) (*Network, error) {
 		return nil, err
 	}
 
+	err = validateName(name)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Network{
 		ID:         id,
 		Name:       name,
