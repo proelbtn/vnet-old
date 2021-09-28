@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"syscall"
 
@@ -13,6 +14,10 @@ import (
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"go.uber.org/zap"
+)
+
+const (
+	DEFAULT_NAMESPACE = "vnet"
 )
 
 type ContainerManager struct {
@@ -82,7 +87,7 @@ func (v *ContainerManager) Delete(ctx context.Context, spec *entities.Container)
 }
 
 func getNamespaceName(spec *entities.Container) string {
-	return spec.Laboratory.ID.String()
+	return DEFAULT_NAMESPACE
 }
 
 func getContainerID(spec *entities.Container) string {
@@ -104,6 +109,21 @@ func (v *ContainerManager) findContainer(ctx context.Context, id string) (contai
 	return nil, ErrNotFound
 }
 
+func (v *ContainerManager) getImage(ctx context.Context, name string) (containerd.Image, error) {
+	zap.L().Debug("finding image", zap.String("name", name))
+	images, err := v.client.ListImages(ctx, fmt.Sprintf("name==%s", name))
+	if err != nil {
+		return nil, err
+	}
+	if len(images) > 0 {
+		zap.L().Debug("saved image found")
+		return images[0], nil
+	}
+
+	zap.L().Debug("saved image not found, pulling")
+	return v.client.Pull(ctx, name, containerd.WithPullUnpack)
+}
+
 func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.Container) (uint32, error) {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
 	logger := zap.L().With(
@@ -116,8 +136,8 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 	logger.Debug("creating Container")
 	id := getContainerID(spec)
 
-	logger.Debug("pulling image", zap.String("ImageName", spec.ImageName))
-	image, err := v.client.Pull(ctx, spec.ImageName, containerd.WithPullUnpack)
+	logger.Debug("getting image", zap.String("ImageName", spec.ImageName))
+	image, err := v.getImage(ctx, spec.ImageName)
 	if err != nil {
 		return 0, err
 	}
