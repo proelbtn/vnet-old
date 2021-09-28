@@ -9,6 +9,7 @@ import (
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	"go.uber.org/zap"
 )
 
 type NetworkManager struct {
@@ -30,6 +31,15 @@ func GetPortName(port *entities.Port) string {
 	return fmt.Sprintf("po-%s%s", idStr[:8], idStr[9:13])
 }
 
+func (v *NetworkManager) getLogger(network *entities.Network) *zap.Logger {
+	return zap.L().With(
+		zap.String("ID", network.ID.String()),
+		zap.String("Name", network.Name),
+		zap.String("Laboratory.ID", network.Laboratory.ID.String()),
+		zap.String("Laboratory.Name", network.Laboratory.Name),
+	)
+}
+
 func (v *NetworkManager) Create(ctx context.Context, network *entities.Network) error {
 	return v.createBridge(network)
 }
@@ -39,6 +49,10 @@ func (v *NetworkManager) Delete(ctx context.Context, network *entities.Network) 
 }
 
 func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*entities.Port) error {
+	logger := zap.L()
+
+	logger.Debug("creating bridge")
+
 	nsHandle, err := netns.GetFromPid(pid)
 	if err != nil {
 		return err
@@ -54,7 +68,10 @@ func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*enti
 		return err
 	}
 
+	logger.Debug("creating ports")
 	for _, port := range ports {
+		logger.Debug("creating port", zap.String("ID", port.ID.String()), zap.String("Name", port.Name))
+
 		attrs := netlink.NewLinkAttrs()
 		attrs.Name = GetPortName(port)
 		attrs.Flags = attrs.Flags | net.FlagUp
@@ -95,6 +112,10 @@ func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*enti
 }
 
 func (v *NetworkManager) createBridge(network *entities.Network) error {
+	logger := v.getLogger(network)
+
+	logger.Debug("creating bridge")
+
 	attrs := netlink.NewLinkAttrs()
 	attrs.Name = GetBridgeName(network)
 	attrs.Flags = attrs.Flags | net.FlagUp
@@ -103,17 +124,35 @@ func (v *NetworkManager) createBridge(network *entities.Network) error {
 		LinkAttrs: attrs,
 	}
 
-	return netlink.LinkAdd(bridge)
-}
-
-func (v *NetworkManager) deleteBridge(network *entities.Network) error {
-	name := GetBridgeName(network)
-	bridge, err := netlink.LinkByName(name)
+	err := netlink.LinkAdd(bridge)
 	if err != nil {
 		return err
 	}
 
-	// TODO: add warning if the type of `bridge` is not "bridge"
+	logger.Debug("created bridge")
+	return nil
+}
 
-	return netlink.LinkDel(bridge)
+func (v *NetworkManager) deleteBridge(network *entities.Network) error {
+	logger := v.getLogger(network)
+
+	logger.Debug("deleting bridge")
+
+	name := GetBridgeName(network)
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		return err
+	}
+
+	if link.Type() != "bridge" {
+		logger.Warn("selected link isn't bridge", zap.Any("link", link))
+	}
+
+	err = netlink.LinkDel(link)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("deleted bridge")
+	return nil
 }
