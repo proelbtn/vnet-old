@@ -5,6 +5,7 @@ import (
 
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
+	"go.uber.org/zap"
 )
 
 type LaboratoryManager struct {
@@ -22,6 +23,14 @@ func NewLaboratoryManager(containerManager managers.ContainerManager, networkMan
 }
 
 func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory) error {
+	logger := zap.L().With(
+		zap.String("ID", lab.ID.String()),
+		zap.String("Name", lab.Name),
+	)
+
+	logger.Debug("starting Laboratory")
+
+	logger.Debug("creating Networks")
 	for _, network := range lab.Networks {
 		err := v.networkManager.Create(ctx, network)
 		if err != nil {
@@ -29,6 +38,7 @@ func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory)
 		}
 	}
 
+	logger.Debug("creating Containers")
 	for _, container := range lab.Containers {
 		pid, err := v.containerManager.Create(ctx, container)
 		if err != nil {
@@ -46,10 +56,19 @@ func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory)
 		}
 	}
 
+	logger.Debug("started Laboratory")
 	return nil
 }
 
 func (v *LaboratoryManager) Stop(ctx context.Context, lab *entities.Laboratory) error {
+	logger := zap.L().With(
+		zap.String("ID", lab.ID.String()),
+		zap.String("Name", lab.Name),
+	)
+
+	logger.Debug("stopping Laboratory")
+
+	logger.Debug("stopping Containers")
 	for _, container := range lab.Containers {
 		err := v.containerManager.Stop(ctx, container)
 		if err != nil {
@@ -62,6 +81,7 @@ func (v *LaboratoryManager) Stop(ctx context.Context, lab *entities.Laboratory) 
 		}
 	}
 
+	logger.Debug("stopping Networks")
 	for _, network := range lab.Networks {
 		err := v.networkManager.Delete(ctx, network)
 		if err != nil {
@@ -69,5 +89,6 @@ func (v *LaboratoryManager) Stop(ctx context.Context, lab *entities.Laboratory) 
 		}
 	}
 
+	logger.Debug("stopped Laboratory")
 	return nil
 }

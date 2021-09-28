@@ -12,6 +12,7 @@ import (
 	"github.com/containerd/containerd/oci"
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
+	"go.uber.org/zap"
 )
 
 type ContainerManager struct {
@@ -105,13 +106,23 @@ func (v *ContainerManager) findContainer(ctx context.Context, id string) (contai
 
 func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.Container) (uint32, error) {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	logger := zap.L().With(
+		zap.String("ID", spec.ID.String()),
+		zap.String("Name", spec.Name),
+		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
+		zap.String("Laboratory.Name", spec.Laboratory.Name),
+	)
+
+	logger.Debug("creating Container")
 	id := getContainerID(spec)
 
+	logger.Debug("pulling image", zap.String("ImageName", spec.ImageName))
 	image, err := v.client.Pull(ctx, spec.ImageName, containerd.WithPullUnpack)
 	if err != nil {
 		return 0, err
 	}
 
+	logger.Debug("creating container")
 	container, err := v.client.NewContainer(
 		ctx, id,
 		containerd.WithNewSnapshot(id, image),
@@ -121,16 +132,26 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 		return 0, err
 	}
 
+	logger.Debug("creating task")
 	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
 	if err != nil {
 		return 0, err
 	}
 
+	logger.Debug("created Container")
 	return task.Pid(), nil
 }
 
 func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	logger := zap.L().With(
+		zap.String("ID", spec.ID.String()),
+		zap.String("Name", spec.Name),
+		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
+		zap.String("Laboratory.Name", spec.Laboratory.Name),
+	)
+
+	logger.Debug("deleting Container")
 	id := getContainerID(spec)
 
 	container, err := v.findContainer(ctx, id)
@@ -143,16 +164,29 @@ func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.C
 		return err
 	}
 
+	logger.Debug("deleting task")
 	_, err = task.Delete(ctx)
 	if err != nil {
 		return err
 	}
 
-	return container.Delete(ctx, containerd.WithSnapshotCleanup)
+	logger.Debug("deleting container")
+	err = container.Delete(ctx, containerd.WithSnapshotCleanup)
+
+	logger.Debug("deleted Container")
+	return err
 }
 
 func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	logger := zap.L().With(
+		zap.String("ID", spec.ID.String()),
+		zap.String("Name", spec.Name),
+		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
+		zap.String("Laboratory.Name", spec.Laboratory.Name),
+	)
+
+	logger.Debug("starting task")
 	id := getContainerID(spec)
 
 	container, err := v.findContainer(ctx, id)
@@ -165,11 +199,22 @@ func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Contain
 		return err
 	}
 
-	return task.Start(ctx)
+	err = task.Start(ctx)
+
+	logger.Debug("started task")
+	return err
 }
 
 func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	logger := zap.L().With(
+		zap.String("ID", spec.ID.String()),
+		zap.String("Name", spec.Name),
+		zap.String("Laboratory.ID", spec.Laboratory.ID.String()),
+		zap.String("Laboratory.Name", spec.Laboratory.Name),
+	)
+
+	logger.Debug("killing task")
 	id := getContainerID(spec)
 
 	container, err := v.findContainer(ctx, id)
@@ -182,5 +227,8 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 		return err
 	}
 
-	return task.Kill(ctx, syscall.SIGKILL)
+	err = task.Kill(ctx, syscall.SIGKILL)
+
+	logger.Debug("killing task")
+	return err
 }

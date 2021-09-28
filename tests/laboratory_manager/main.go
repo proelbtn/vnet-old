@@ -7,10 +7,17 @@ import (
 
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/repositories"
+	"go.uber.org/zap"
 )
 
 func main() {
 	ctx := context.Background()
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	zap.ReplaceGlobals(logger)
+
 	networkManager := repositories.NewNetworkManger()
 	containerManager, err := repositories.NewContainerManager()
 	if err != nil {
@@ -56,7 +63,7 @@ func main() {
 		panic(err)
 	}
 
-	time.Sleep(300 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	err = manager.Stop(ctx, lab)
 	if err != nil {
