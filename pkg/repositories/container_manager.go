@@ -90,8 +90,8 @@ func getNamespaceName(spec *entities.Container) string {
 	return DEFAULT_NAMESPACE
 }
 
-func getContainerID(spec *entities.Container) string {
-	return spec.ID.String()
+func getContainerName(spec *entities.Container) string {
+	return fmt.Sprintf("%s-%s", spec.Laboratory.Name, spec.Name)
 }
 
 func (v *ContainerManager) findContainer(ctx context.Context, id string) (containerd.Container, error) {
@@ -134,7 +134,7 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 	)
 
 	logger.Debug("creating Container")
-	id := getContainerID(spec)
+	name := getContainerName(spec)
 
 	logger.Debug("getting image", zap.String("ImageName", spec.ImageName))
 	image, err := v.getImage(ctx, spec.ImageName)
@@ -144,8 +144,8 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 
 	logger.Debug("creating container")
 	container, err := v.client.NewContainer(
-		ctx, id,
-		containerd.WithNewSnapshot(id, image),
+		ctx, name,
+		containerd.WithNewSnapshot(name, image),
 		containerd.WithNewSpec(oci.WithImageConfig(image)),
 	)
 	if err != nil {
@@ -172,9 +172,9 @@ func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.C
 	)
 
 	logger.Debug("deleting Container")
-	id := getContainerID(spec)
+	name := getContainerName(spec)
 
-	container, err := v.findContainer(ctx, id)
+	container, err := v.findContainer(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -207,9 +207,9 @@ func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Contain
 	)
 
 	logger.Debug("starting task")
-	id := getContainerID(spec)
+	name := getContainerName(spec)
 
-	container, err := v.findContainer(ctx, id)
+	container, err := v.findContainer(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -235,9 +235,9 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 	)
 
 	logger.Debug("killing task")
-	id := getContainerID(spec)
+	name := getContainerName(spec)
 
-	container, err := v.findContainer(ctx, id)
+	container, err := v.findContainer(ctx, name)
 	if err != nil {
 		return err
 	}
