@@ -1,10 +1,14 @@
 package managers
 
-import "github.com/proelbtn/vnet/pkg/entities"
+import (
+	"context"
+
+	"github.com/proelbtn/vnet/pkg/entities"
+)
 
 type ContainerManager interface {
-	Create(container *entities.Container) (uint32, error)
-	Start(container *entities.Container) error
-	Stop(container *entities.Container) error
-	Delete(container *entities.Container) error
+	Create(ctx context.Context, container *entities.Container) (uint32, error)
+	Start(ctx context.Context, container *entities.Container) error
+	Stop(ctx context.Context, container *entities.Container) error
+	Delete(ctx context.Context, container *entities.Container) error
 }

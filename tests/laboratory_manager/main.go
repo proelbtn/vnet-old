@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	networkManager := repositories.NewNetworkManger()
 	containerManager, err := repositories.NewContainerManager()
 	if err != nil {
@@ -49,9 +51,15 @@ func main() {
 		panic(err)
 	}
 
-	manager.Start(lab)
+	err = manager.Start(ctx, lab)
+	if err != nil {
+		panic(err)
+	}
 
 	time.Sleep(300 * time.Second)
 
-	manager.Stop(lab)
+	err = manager.Stop(ctx, lab)
+	if err != nil {
+		panic(err)
+	}
 }

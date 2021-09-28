@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"context"
+
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 )
@@ -19,26 +21,26 @@ func NewLaboratoryManager(containerManager managers.ContainerManager, networkMan
 	}
 }
 
-func (v *LaboratoryManager) Start(lab *entities.Laboratory) error {
+func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory) error {
 	for _, network := range lab.Networks {
-		err := v.networkManager.Create(network)
+		err := v.networkManager.Create(ctx, network)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, container := range lab.Containers {
-		pid, err := v.containerManager.Create(container)
+		pid, err := v.containerManager.Create(ctx, container)
 		if err != nil {
 			return err
 		}
 
-		err = v.networkManager.AttachPorts(int(pid), container.Ports)
+		err = v.networkManager.AttachPorts(ctx, int(pid), container.Ports)
 		if err != nil {
 			return err
 		}
 
-		err = v.containerManager.Start(container)
+		err = v.containerManager.Start(ctx, container)
 		if err != nil {
 			return err
 		}
@@ -47,21 +49,21 @@ func (v *LaboratoryManager) Start(lab *entities.Laboratory) error {
 	return nil
 }
 
-func (v *LaboratoryManager) Stop(lab *entities.Laboratory) error {
+func (v *LaboratoryManager) Stop(ctx context.Context, lab *entities.Laboratory) error {
 	for _, container := range lab.Containers {
-		err := v.containerManager.Stop(container)
+		err := v.containerManager.Stop(ctx, container)
 		if err != nil {
 			return err
 		}
 
-		err = v.containerManager.Delete(container)
+		err = v.containerManager.Delete(ctx, container)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, network := range lab.Networks {
-		err := v.networkManager.Delete(network)
+		err := v.networkManager.Delete(ctx, network)
 		if err != nil {
 			return err
 		}

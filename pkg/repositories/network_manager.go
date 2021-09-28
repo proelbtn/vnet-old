@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -29,15 +30,15 @@ func GetPortName(port *entities.Port) string {
 	return fmt.Sprintf("po-%s%s", idStr[:8], idStr[9:13])
 }
 
-func (v *NetworkManager) Create(network *entities.Network) error {
+func (v *NetworkManager) Create(ctx context.Context, network *entities.Network) error {
 	return v.createBridge(network)
 }
 
-func (v *NetworkManager) Delete(network *entities.Network) error {
+func (v *NetworkManager) Delete(ctx context.Context, network *entities.Network) error {
 	return v.deleteBridge(network)
 }
 
-func (v *NetworkManager) AttachPorts(pid int, ports []*entities.Port) error {
+func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*entities.Port) error {
 	nsHandle, err := netns.GetFromPid(pid)
 	if err != nil {
 		return err

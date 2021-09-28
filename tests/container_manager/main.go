@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"time"
 
 	"github.com/proelbtn/vnet/pkg/entities"
@@ -8,6 +9,8 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
 	manager, err := repositories.NewContainerManager()
 	if err != nil {
 		panic(err)
@@ -26,24 +29,24 @@ func main() {
 		panic(err)
 	}
 
-	_, err = manager.Create(container)
+	_, err = manager.Create(ctx, container)
 	if err != nil {
 		panic(err)
 	}
 
-	err = manager.Start(container)
+	err = manager.Start(ctx, container)
 	if err != nil {
 		panic(err)
 	}
 
 	time.Sleep(5 * time.Second)
 
-	err = manager.Stop(container)
+	err = manager.Stop(ctx, container)
 	if err != nil {
 		panic(err)
 	}
 
-	err = manager.Delete(container)
+	err = manager.Delete(ctx, container)
 	if err != nil {
 		panic(err)
 	}

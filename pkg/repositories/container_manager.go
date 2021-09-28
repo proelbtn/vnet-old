@@ -64,33 +64,48 @@ func FindContainerdSocketPath() (string, error) {
 	return "", ErrNotFound
 }
 
-func GetNamespaceName(spec *entities.Container) string {
+func (v *ContainerManager) Create(ctx context.Context, spec *entities.Container) (uint32, error) {
+	return v.createContainer(ctx, spec)
+}
+
+func (v *ContainerManager) Start(ctx context.Context, spec *entities.Container) error {
+	return v.startTask(ctx, spec)
+}
+
+func (v *ContainerManager) Stop(ctx context.Context, spec *entities.Container) error {
+	return v.stopTask(ctx, spec)
+}
+
+func (v *ContainerManager) Delete(ctx context.Context, spec *entities.Container) error {
+	return v.deleteContainer(ctx, spec)
+}
+
+func getNamespaceName(spec *entities.Container) string {
 	return spec.Laboratory.ID.String()
 }
 
-func GetContainerID(spec *entities.Container) string {
+func getContainerID(spec *entities.Container) string {
 	return spec.ID.String()
 }
 
-func (v *ContainerManager) Create(spec *entities.Container) (uint32, error) {
-	return v.createContainer(spec)
+func (v *ContainerManager) findContainer(ctx context.Context, id string) (containerd.Container, error) {
+	containers, err := v.client.Containers(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, container := range containers {
+		if container.ID() == id {
+			return container, nil
+		}
+	}
+
+	return nil, ErrNotFound
 }
 
-func (v *ContainerManager) Start(spec *entities.Container) error {
-	return v.startTask(spec)
-}
-
-func (v *ContainerManager) Stop(spec *entities.Container) error {
-	return v.stopTask(spec)
-}
-
-func (v *ContainerManager) Delete(spec *entities.Container) error {
-	return v.deleteContainer(spec)
-}
-
-func (v *ContainerManager) createContainer(spec *entities.Container) (uint32, error) {
-	ctx := namespaces.WithNamespace(context.Background(), GetNamespaceName(spec))
-	id := GetContainerID(spec)
+func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.Container) (uint32, error) {
+	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	id := getContainerID(spec)
 
 	image, err := v.client.Pull(ctx, spec.ImageName, containerd.WithPullUnpack)
 	if err != nil {
@@ -114,24 +129,9 @@ func (v *ContainerManager) createContainer(spec *entities.Container) (uint32, er
 	return task.Pid(), nil
 }
 
-func (v *ContainerManager) findContainer(ctx context.Context, id string) (containerd.Container, error) {
-	containers, err := v.client.Containers(ctx, "")
-	if err != nil {
-		return nil, err
-	}
-
-	for _, container := range containers {
-		if container.ID() == id {
-			return container, nil
-		}
-	}
-
-	return nil, ErrNotFound
-}
-
-func (v *ContainerManager) deleteContainer(spec *entities.Container) error {
-	ctx := namespaces.WithNamespace(context.Background(), GetNamespaceName(spec))
-	id := GetContainerID(spec)
+func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.Container) error {
+	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	id := getContainerID(spec)
 
 	container, err := v.findContainer(ctx, id)
 	if err != nil {
@@ -151,9 +151,9 @@ func (v *ContainerManager) deleteContainer(spec *entities.Container) error {
 	return container.Delete(ctx, containerd.WithSnapshotCleanup)
 }
 
-func (v *ContainerManager) startTask(spec *entities.Container) error {
-	ctx := namespaces.WithNamespace(context.Background(), GetNamespaceName(spec))
-	id := GetContainerID(spec)
+func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Container) error {
+	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	id := getContainerID(spec)
 
 	container, err := v.findContainer(ctx, id)
 	if err != nil {
@@ -168,9 +168,9 @@ func (v *ContainerManager) startTask(spec *entities.Container) error {
 	return task.Start(ctx)
 }
 
-func (v *ContainerManager) stopTask(spec *entities.Container) error {
-	ctx := namespaces.WithNamespace(context.Background(), GetNamespaceName(spec))
-	id := GetContainerID(spec)
+func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Container) error {
+	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
+	id := getContainerID(spec)
 
 	container, err := v.findContainer(ctx, id)
 	if err != nil {

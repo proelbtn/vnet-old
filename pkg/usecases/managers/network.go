@@ -1,9 +1,13 @@
 package managers
 
-import "github.com/proelbtn/vnet/pkg/entities"
+import (
+	"context"
+
+	"github.com/proelbtn/vnet/pkg/entities"
+)
 
 type NetworkManager interface {
-	Create(network *entities.Network) error
-	Delete(network *entities.Network) error
-	AttachPorts(pid int, ports []*entities.Port) error
+	Create(ctx context.Context, network *entities.Network) error
+	Delete(ctx context.Context, network *entities.Network) error
+	AttachPorts(ctx context.Context, pid int, ports []*entities.Port) error
 }

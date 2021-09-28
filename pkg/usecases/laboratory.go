@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"errors"
 
 	"github.com/google/uuid"
@@ -66,19 +67,21 @@ func (v *LaboratoryUsecase) DeleteLaboratory(identifier string) error {
 }
 
 func (v *LaboratoryUsecase) StartLaboratory(identifier string) error {
+	ctx := context.Background()
 	lab, err := v.findLaboratoryByIdentifier(identifier)
 	if err != nil {
 		return err
 	}
 
-	return v.laboratoryManager.Start(lab)
+	return v.laboratoryManager.Start(ctx, lab)
 }
 
 func (v *LaboratoryUsecase) StopLaboratory(identifier string) error {
+	ctx := context.Background()
 	lab, err := v.findLaboratoryByIdentifier(identifier)
 	if err != nil {
 		return err
 	}
 
-	return v.laboratoryManager.Stop(lab)
+	return v.laboratoryManager.Stop(ctx, lab)
 }
