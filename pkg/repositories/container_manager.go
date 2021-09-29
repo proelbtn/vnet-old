@@ -173,18 +173,19 @@ func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.C
 
 	container, err := v.findContainer(ctx, name)
 	if err != nil {
-		return err
+		// TODO: handling error
+		return nil
 	}
 
-	task, err := container.Task(ctx, nil)
-	if err != nil {
-		return err
-	}
+	task, _ := container.Task(ctx, nil)
+	// TODO: handling error
 
-	logger.Debug("deleting task")
-	_, err = task.Delete(ctx)
-	if err != nil {
-		return err
+	if task != nil {
+		logger.Debug("deleting task")
+		_, err = task.Delete(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
 	logger.Debug("deleting container")
@@ -231,7 +232,8 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 
 	task, err := container.Task(ctx, nil)
 	if err != nil {
-		return err
+		// TODO: handling errors which isn't `not found` error
+		return nil
 	}
 
 	err = task.Kill(ctx, syscall.SIGKILL)
