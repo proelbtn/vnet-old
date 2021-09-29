@@ -160,7 +160,7 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 		return 0, err
 	}
 
-	logger.Debug("created Container")
+	logger.Debug("created Container", zap.Uint32("pid", task.Pid()))
 	return task.Pid(), nil
 }
 
