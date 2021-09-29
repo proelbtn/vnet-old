@@ -2,17 +2,12 @@ package usecases
 
 import (
 	"context"
-	"errors"
 
 	"github.com/google/uuid"
 	"github.com/proelbtn/vnet/pkg/entities"
+	"github.com/proelbtn/vnet/pkg/errors"
 	"github.com/proelbtn/vnet/pkg/usecases/gateways"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
-)
-
-var (
-	ErrLaboratoryAlreadyExists = errors.New("laboratory already exists")
-	ErrLaboratoryNotFound      = errors.New("laboratory not found")
 )
 
 type LaboratoryUsecase struct {
@@ -33,7 +28,7 @@ func (v *LaboratoryUsecase) CreateLaboratory(req WritableLaboratory) (*Laborator
 		return nil, err
 	}
 	if saved != nil {
-		return nil, ErrLaboratoryAlreadyExists
+		return nil, errors.ErrAlreadyExists
 	}
 
 	laboratory, err := req.ToEntity()

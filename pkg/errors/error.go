@@ -3,5 +3,7 @@ package errors
 import "fmt"
 
 var (
-	ErrInvalidName = fmt.Errorf("invalid name")
+	ErrAlreadyExists = fmt.Errorf("already exists")
+	ErrNotFound      = fmt.Errorf("not found")
+	ErrInvalidName   = fmt.Errorf("invalid name")
 )
