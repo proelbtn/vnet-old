@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"io/ioutil"
 
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
@@ -28,10 +29,41 @@ func (v *LaboratoryManager) getLogger(lab *entities.Laboratory) *zap.Logger {
 	)
 }
 
+func (v *LaboratoryManager) checkKernelParameters() error {
+	params := []struct {
+		key   string
+		value []byte
+	}{
+		{
+			key:   "/proc/sys/net/ipv4/conf/all/forwarding",
+			value: []byte("1"),
+		},
+		{
+			key:   "/proc/sys/net/ipv6/conf/all/forwarding",
+			value: []byte("1"),
+		},
+	}
+
+	for _, param := range params {
+		err := ioutil.WriteFile(param.key, param.value, 0)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory) error {
 	logger := v.getLogger(lab)
 
 	logger.Debug("starting Laboratory")
+
+	logger.Debug("checking kernel parameters")
+	err := v.checkKernelParameters()
+	if err != nil {
+		return err
+	}
 
 	logger.Debug("creating Networks")
 	for _, network := range lab.Networks {
