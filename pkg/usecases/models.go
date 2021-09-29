@@ -1,7 +1,10 @@
 package usecases
 
 import (
+	"net"
+
 	"github.com/proelbtn/vnet/pkg/entities"
+	"github.com/proelbtn/vnet/pkg/errors"
 )
 
 type WritableLaboratory struct {
@@ -30,7 +33,7 @@ func (v *WritableLaboratory) ToEntity() (*entities.Laboratory, error) {
 
 	containers := make([]*entities.Container, len(v.Containers))
 	for i := range containers {
-		container, err := v.Containers[i].ToEntity()
+		container, err := v.Containers[i].ToEntity(networks)
 		if err != nil {
 			return nil, err
 		}
@@ -43,17 +46,60 @@ func (v *WritableLaboratory) ToEntity() (*entities.Laboratory, error) {
 type WritableContainer struct {
 	Name      string
 	ImageName string
+	Ports     []*WritablePort
 }
 
-func NewWritableContainer(name string, imageName string) *WritableContainer {
+func NewWritableContainer(name string, imageName string, ports []*WritablePort) *WritableContainer {
 	return &WritableContainer{
 		Name:      name,
 		ImageName: imageName,
+		Ports:     ports,
 	}
 }
 
-func (v *WritableContainer) ToEntity() (*entities.Container, error) {
-	return entities.NewContainer(v.Name, v.ImageName, nil)
+func (v *WritableContainer) ToEntity(networks []*entities.Network) (*entities.Container, error) {
+	ports := make([]*entities.Port, len(v.Ports))
+	for i := range v.Ports {
+		port, err := v.Ports[i].ToEntity(networks)
+		if err != nil {
+			return nil, err
+		}
+		ports[i] = port
+	}
+	return entities.NewContainer(v.Name, v.ImageName, ports)
+}
+
+type WritablePort struct {
+	Name      string
+	Network   string
+	Addresses []*net.IPNet
+}
+
+func NewWritablePort(name string, network string, addresses []string) (*WritablePort, error) {
+	port := &WritablePort{
+		Name:      name,
+		Network:   network,
+		Addresses: make([]*net.IPNet, len(addresses)),
+	}
+
+	for i := range addresses {
+		addr, err := entities.NewIPAddress(addresses[i])
+		if err != nil {
+			return nil, err
+		}
+		port.Addresses[i] = addr
+	}
+
+	return port, nil
+}
+
+func (v *WritablePort) ToEntity(networks []*entities.Network) (*entities.Port, error) {
+	for _, network := range networks {
+		if v.Network == network.Name {
+			return entities.NewPort(v.Name, network, v.Addresses)
+		}
+	}
+	return nil, errors.ErrNotFound
 }
 
 type WritableNetwork struct {

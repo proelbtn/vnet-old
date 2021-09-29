@@ -5,4 +5,4 @@ build: vnet
 vnet: cmd/vnet/*
 	go build -o vnet $^
 
-.PHONY: build test
+.PHONY: build test vnet

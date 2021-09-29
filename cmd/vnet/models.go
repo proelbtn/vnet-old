@@ -13,7 +13,7 @@ type Laboratory struct {
 	Networks   []*Network   `yaml:"networks"`
 }
 
-func (v *Laboratory) ToWritableLaboratory() *usecases.WritableLaboratory {
+func (v *Laboratory) ToWritableLaboratory() (*usecases.WritableLaboratory, error) {
 	networks := make([]*usecases.WritableNetwork, len(v.Networks))
 	for i := range networks {
 		networks[i] = v.Networks[i].ToWritableNetwork()
@@ -21,19 +21,42 @@ func (v *Laboratory) ToWritableLaboratory() *usecases.WritableLaboratory {
 
 	containers := make([]*usecases.WritableContainer, len(v.Containers))
 	for i := range containers {
-		containers[i] = v.Containers[i].ToWritableContainer()
+		container, err := v.Containers[i].ToWritableContainer()
+		if err != nil {
+			return nil, err
+		}
+		containers[i] = container
 	}
 
-	return usecases.NewWritableLaboratory(v.Name, containers, networks)
+	return usecases.NewWritableLaboratory(v.Name, containers, networks), nil
 }
 
 type Container struct {
-	Name      string `yaml:"name"`
-	ImageName string `yaml:"image"`
+	Name      string  `yaml:"name"`
+	ImageName string  `yaml:"image"`
+	Ports     []*Port `yaml:"ports"`
 }
 
-func (v *Container) ToWritableContainer() *usecases.WritableContainer {
-	return usecases.NewWritableContainer(v.Name, v.ImageName)
+func (v *Container) ToWritableContainer() (*usecases.WritableContainer, error) {
+	ports := make([]*usecases.WritablePort, len(v.Ports))
+	for i := range v.Ports {
+		port, err := v.Ports[i].ToWritablePort()
+		if err != nil {
+			return nil, err
+		}
+		ports[i] = port
+	}
+	return usecases.NewWritableContainer(v.Name, v.ImageName, ports), nil
+}
+
+type Port struct {
+	Name      string   `yaml:"name"`
+	Network   string   `yaml:"network"`
+	Addresses []string `yaml:"addresses"`
+}
+
+func (v *Port) ToWritablePort() (*usecases.WritablePort, error) {
+	return usecases.NewWritablePort(v.Name, v.Network, v.Addresses)
 }
 
 type Network struct {
