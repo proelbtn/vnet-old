@@ -1,7 +1,10 @@
 package main
 
 import (
+	"io/ioutil"
+
 	"github.com/proelbtn/vnet/pkg/usecases"
+	"gopkg.in/yaml.v3"
 )
 
 type Laboratory struct {
@@ -39,4 +42,20 @@ type Network struct {
 
 func (v *Network) ToWritableNetwork() *usecases.WritableNetwork {
 	return usecases.NewWritableNetwork(v.Name)
+}
+
+func loadManifest(manifestPath string) (*Laboratory, error) {
+	var lab Laboratory
+
+	manifest, err := ioutil.ReadFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal(manifest, &lab)
+	if err != nil {
+		return nil, err
+	}
+
+	return &lab, nil
 }
