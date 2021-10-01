@@ -132,6 +132,7 @@ func (v *ContainerManager) getImage(ctx context.Context, name string) (container
 	return v.client.Pull(ctx, name, containerd.WithPullUnpack)
 }
 
+// refs: https://github.com/containerd/containerd/blob/63b7e5771e8914f3c36c707f3b5fc4846b11997b/cmd/ctr/commands/run/run_unix.go#L89
 func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.Container) (uint32, error) {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
 	logger := v.getLogger(spec)
@@ -149,7 +150,12 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 	container, err := v.client.NewContainer(
 		ctx, name,
 		containerd.WithNewSnapshot(name, image),
-		containerd.WithNewSpec(oci.WithImageConfig(image)),
+		containerd.WithNewSpec(
+			oci.WithImageConfig(image),
+			oci.WithPrivileged,
+			oci.WithAllDevicesAllowed,
+			oci.WithHostDevices,
+		),
 	)
 	if err != nil {
 		return 0, err
