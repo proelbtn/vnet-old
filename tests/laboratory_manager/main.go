@@ -45,6 +45,7 @@ func main() {
 		"test",
 		"docker.io/nicolaka/netshoot:latest",
 		[]*entities.Port{port},
+		[]string{},
 	)
 	if err != nil {
 		panic(err)

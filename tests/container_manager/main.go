@@ -20,6 +20,7 @@ func main() {
 		"test",
 		"docker.io/library/redis:alpine",
 		nil,
+		[]string{},
 	)
 	if err != nil {
 		panic(err)
