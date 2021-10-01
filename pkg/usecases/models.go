@@ -47,13 +47,15 @@ type WritableContainer struct {
 	Name      string
 	ImageName string
 	Ports     []*WritablePort
+	Commands  []string
 }
 
-func NewWritableContainer(name string, imageName string, ports []*WritablePort) *WritableContainer {
+func NewWritableContainer(name string, imageName string, ports []*WritablePort, commands []string) *WritableContainer {
 	return &WritableContainer{
 		Name:      name,
 		ImageName: imageName,
 		Ports:     ports,
+		Commands:  commands,
 	}
 }
 
@@ -66,7 +68,7 @@ func (v *WritableContainer) ToEntity(networks []*entities.Network) (*entities.Co
 		}
 		ports[i] = port
 	}
-	return entities.NewContainer(v.Name, v.ImageName, ports)
+	return entities.NewContainer(v.Name, v.ImageName, ports, v.Commands)
 }
 
 type WritablePort struct {

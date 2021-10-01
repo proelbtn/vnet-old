@@ -32,9 +32,10 @@ func (v *Laboratory) ToWritableLaboratory() (*usecases.WritableLaboratory, error
 }
 
 type Container struct {
-	Name      string  `yaml:"name"`
-	ImageName string  `yaml:"image"`
-	Ports     []*Port `yaml:"ports"`
+	Name      string   `yaml:"name"`
+	ImageName string   `yaml:"image"`
+	Ports     []*Port  `yaml:"ports"`
+	Commands  []string `yaml:"commands"`
 }
 
 func (v *Container) ToWritableContainer() (*usecases.WritableContainer, error) {
@@ -46,7 +47,7 @@ func (v *Container) ToWritableContainer() (*usecases.WritableContainer, error) {
 		}
 		ports[i] = port
 	}
-	return usecases.NewWritableContainer(v.Name, v.ImageName, ports), nil
+	return usecases.NewWritableContainer(v.Name, v.ImageName, ports, v.Commands), nil
 }
 
 type Port struct {
