@@ -11,6 +11,7 @@ import (
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
+	"github.com/mattn/go-shellwords"
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"go.uber.org/zap"
@@ -195,12 +196,12 @@ func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.C
 	return err
 }
 
-func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Container) error {
-	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
-	logger := v.getLogger(spec)
+func (v *ContainerManager) startTask(ctx context.Context, con *entities.Container) error {
+	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
+	logger := v.getLogger(con)
 
 	logger.Debug("starting task")
-	name := getContainerName(spec)
+	name := getContainerName(con)
 
 	container, err := v.findContainer(ctx, name)
 	if err != nil {
@@ -213,8 +214,54 @@ func (v *ContainerManager) startTask(ctx context.Context, spec *entities.Contain
 	}
 
 	err = task.Start(ctx)
-
+	if err != nil {
+		return err
+	}
 	logger.Debug("started task")
+
+	logger.Debug("executing commands")
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, cmd := range con.Commands {
+		args, err := shellwords.Parse(cmd)
+		if err != nil {
+			return err
+		}
+
+		logger := logger.With(zap.Any("command", args))
+
+		pspec := spec.Process
+		pspec.Args = args
+
+		logger.Debug("executing command")
+		proc, err := task.Exec(ctx, "vnet-exec", pspec, cio.NullIO)
+		if err != nil {
+			return err
+		}
+
+		pchan, err := proc.Wait(ctx)
+		if err != nil {
+			return err
+		}
+
+		logger.Debug("starting command")
+		if err = proc.Start(ctx); err != nil {
+			return err
+		}
+
+		logger.Debug("waiting command")
+		status := <-pchan
+
+		logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
+
+		if _, err := proc.Delete(ctx); err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
