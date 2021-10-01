@@ -1,11 +1,11 @@
-package main
+package commands
 
 import (
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 )
 
-var stopCommand = &cli.Command{
+var StopCommand = &cli.Command{
 	Name:  "stop",
 	Usage: "Stop laboratory",
 	Flags: []cli.Flag{

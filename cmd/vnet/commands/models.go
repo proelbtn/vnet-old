@@ -1,11 +1,32 @@
-package main
+package commands
 
 import (
 	"io/ioutil"
 
+	"github.com/proelbtn/vnet/pkg/repositories"
 	"github.com/proelbtn/vnet/pkg/usecases"
 	"gopkg.in/yaml.v3"
 )
+
+// TODO: refactoring
+var usecase *usecases.InstantLaboratoryUsecase = nil
+
+func getUsecase() (*usecases.InstantLaboratoryUsecase, error) {
+	if usecase != nil {
+		return usecase, nil
+	}
+
+	networkManager := repositories.NewNetworkManger()
+	containerManager, err := repositories.NewContainerManager()
+	if err != nil {
+		return nil, err
+	}
+
+	laboratoryManager := repositories.NewLaboratoryManager(containerManager, networkManager)
+	usecase := usecases.NewInstantLaboratoryUsecase(laboratoryManager)
+
+	return usecase, nil
+}
 
 type Laboratory struct {
 	Name       string       `yaml:"name"`
