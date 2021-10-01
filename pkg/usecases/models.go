@@ -68,7 +68,7 @@ func (v *WritableContainer) ToEntity(networks []*entities.Network) (*entities.Co
 		}
 		ports[i] = port
 	}
-	return entities.NewContainer(v.Name, v.ImageName, ports, v.Commands)
+	return entities.NewContainer(v.Name, v.ImageName, ports, v.Commands, nil)
 }
 
 type WritablePort struct {

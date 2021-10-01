@@ -10,9 +10,15 @@ type Container struct {
 	EnvironmentVariables map[string]string
 	Ports                []*Port
 	Commands             []string
+	Volumes              []*ContainerVolume
 }
 
-func NewContainer(name string, imageName string, ports []*Port, commands []string) (*Container, error) {
+type ContainerVolume struct {
+	Source      string
+	Destination string
+}
+
+func NewContainer(name string, imageName string, ports []*Port, commands []string, volumes []*ContainerVolume) (*Container, error) {
 	err := validateName(name)
 	if err != nil {
 		return nil, err
@@ -25,6 +31,7 @@ func NewContainer(name string, imageName string, ports []*Port, commands []strin
 		EnvironmentVariables: make(map[string]string),
 		Ports:                make([]*Port, 0),
 		Commands:             commands,
+		Volumes:              volumes,
 	}
 
 	for _, port := range ports {

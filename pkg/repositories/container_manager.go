@@ -14,6 +14,7 @@ import (
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
 	"github.com/mattn/go-shellwords"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"go.uber.org/zap"
@@ -153,6 +154,16 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 	}
 
 	logger.Debug("creating container")
+	mounts := make([]specs.Mount, len(spec.Volumes))
+	for i, volume := range spec.Volumes {
+		mounts[i] = specs.Mount{
+			Source:      volume.Source,
+			Destination: volume.Destination,
+			Type:        "none",
+			Options:     []string{"bind"},
+		}
+	}
+
 	container, err := v.client.NewContainer(
 		ctx, name,
 		containerd.WithNewSnapshot(name, image),
@@ -161,6 +172,7 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 			oci.WithPrivileged,
 			oci.WithAllDevicesAllowed,
 			oci.WithHostDevices,
+			oci.WithMounts(mounts),
 		),
 	)
 	if err != nil {
