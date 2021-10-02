@@ -10,9 +10,9 @@ import (
 )
 
 // TODO: refactoring
-var usecase *usecases.InstantLaboratoryUsecase = nil
+var usecase *usecases.LaboratoryUsecase = nil
 
-func getUsecase() (*usecases.InstantLaboratoryUsecase, error) {
+func getUsecase() (*usecases.LaboratoryUsecase, error) {
 	if usecase != nil {
 		return usecase, nil
 	}
@@ -24,7 +24,7 @@ func getUsecase() (*usecases.InstantLaboratoryUsecase, error) {
 	}
 
 	laboratoryManager := repositories.NewLaboratoryManager(containerManager, networkManager)
-	usecase := usecases.NewInstantLaboratoryUsecase(laboratoryManager, containerManager, networkManager)
+	usecase := usecases.NewLaboratoryUsecase(laboratoryManager, containerManager, networkManager)
 
 	return usecase, nil
 }
