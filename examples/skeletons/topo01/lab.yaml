@@ -1,0 +1,40 @@
+name: topo01
+networks:
+  - name: R1-R2
+  - name: R1-C1
+  - name: R2-C2
+containers:
+  - name: R1
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: net0, network: R1-R2 }
+      - { name: net1, network: R1-C1 }
+    commands: []
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./R1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: R2
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: net0, network: R1-R2 }
+      - { name: net1, network: R2-C2 }
+    commands: []
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./R2/frr.conf, destination: /etc/frr/frr.conf }
+  - name: C1
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: net0, network: R1-C1 }
+    commands: []
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./C1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: C2
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: net0, network: R2-C2 }
+    commands: []
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./C2/frr.conf, destination: /etc/frr/frr.conf }
