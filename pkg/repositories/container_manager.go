@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,11 +10,13 @@ import (
 	"github.com/containerd/console"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
+	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
 	"github.com/mattn/go-shellwords"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/proelbtn/vnet/pkg/entities"
+	"github.com/proelbtn/vnet/pkg/errors"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"go.uber.org/zap"
 )
@@ -29,10 +30,6 @@ type ContainerManager struct {
 }
 
 var _ managers.ContainerManager = (*ContainerManager)(nil)
-
-var (
-	ErrNotFound = errors.New("not found")
-)
 
 var socketPathCandidates = []string{
 	"/run/containerd/containerd.sock",
@@ -71,7 +68,7 @@ func FindContainerdSocketPath() (string, error) {
 		}
 	}
 
-	return "", ErrNotFound
+	return "", errors.ErrNotFound
 }
 
 func (v *ContainerManager) getLogger(con *entities.Container) *zap.Logger {
@@ -82,7 +79,7 @@ func (v *ContainerManager) getLogger(con *entities.Container) *zap.Logger {
 }
 
 func (v *ContainerManager) Create(ctx context.Context, spec *entities.Container) (uint32, error) {
-	return v.createContainer(ctx, spec)
+	return v.create(ctx, spec)
 }
 
 func (v *ContainerManager) Start(ctx context.Context, spec *entities.Container) error {
@@ -94,7 +91,7 @@ func (v *ContainerManager) Stop(ctx context.Context, spec *entities.Container) e
 }
 
 func (v *ContainerManager) Delete(ctx context.Context, spec *entities.Container) error {
-	return v.deleteContainer(ctx, spec)
+	return v.delete(ctx, spec)
 }
 
 func (v *ContainerManager) Exec(ctx context.Context, spec *entities.Container, args managers.ExecArgs) error {
@@ -109,6 +106,20 @@ func getContainerName(spec *entities.Container) string {
 	return fmt.Sprintf("%s-%s", spec.Laboratory.Name, spec.Name)
 }
 
+// findImage tries to find image specified with name
+func (v *ContainerManager) findImage(ctx context.Context, name string) (containerd.Image, error) {
+	images, err := v.client.ListImages(ctx, fmt.Sprintf("name==%s", name))
+	if err != nil {
+		return nil, err
+	}
+	if len(images) > 0 {
+		return images[0], nil
+	}
+
+	return nil, errors.ErrNotFound
+}
+
+// findContainer tries to find container associated with id
 func (v *ContainerManager) findContainer(ctx context.Context, id string) (containerd.Container, error) {
 	containers, err := v.client.Containers(ctx, "")
 	if err != nil {
@@ -121,39 +132,158 @@ func (v *ContainerManager) findContainer(ctx context.Context, id string) (contai
 		}
 	}
 
-	return nil, ErrNotFound
+	return nil, errors.ErrNotFound
 }
 
-func (v *ContainerManager) getImage(ctx context.Context, name string) (containerd.Image, error) {
-	zap.L().Debug("finding image", zap.String("name", name))
-	images, err := v.client.ListImages(ctx, fmt.Sprintf("name==%s", name))
+// findTask tries to find task bound to container
+func (v *ContainerManager) findTask(ctx context.Context, container containerd.Container) (containerd.Task, error) {
+	task, err := container.Task(ctx, nil)
 	if err != nil {
-		return nil, err
-	}
-	if len(images) > 0 {
-		zap.L().Debug("saved image found")
-		return images[0], nil
+		if !errors.Is(err, errdefs.ErrNotFound) {
+			return nil, err
+		}
 	}
 
-	zap.L().Debug("saved image not found, pulling")
+	if task != nil {
+		return task, nil
+	}
+
+	return nil, errors.ErrNotFound
+}
+
+// ensureImageExists tries to get image or fetch it if image is not found
+func (v *ContainerManager) ensureImageExists(ctx context.Context, name string) (containerd.Image, error) {
+	logger := zap.L().With(zap.String("name", name))
+
+	logger.Debug("ensuring image exists")
+
+	logger.Debug("finding image")
+	image, err := v.findImage(ctx, name)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	if image != nil {
+		logger.Debug("image found")
+		return image, nil
+	}
+
+	logger.Debug("image not found, pulling")
 	return v.client.Pull(ctx, name, containerd.WithPullUnpack)
 }
 
-// refs: https://github.com/containerd/containerd/blob/63b7e5771e8914f3c36c707f3b5fc4846b11997b/cmd/ctr/commands/run/run_unix.go#L89
-func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.Container) (uint32, error) {
+// ensureContainerExists tries to get container or create new one if container is not found
+func (v *ContainerManager) ensureContainerExists(ctx context.Context, name string, opts ...containerd.NewContainerOpts) (containerd.Container, error) {
+	logger := zap.L().With(zap.String("name", name))
+
+	logger.Debug("ensuring container exists")
+
+	logger.Debug("finding container")
+	container, err := v.findContainer(ctx, name)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+	}
+
+	if container != nil {
+		logger.Debug("container found")
+		return container, nil
+	}
+
+	logger.Debug("container not found, creating")
+	return v.client.NewContainer(ctx, name, opts...)
+}
+
+// ensureTaskExists tries to get task or create new one if task is not found
+func (v *ContainerManager) ensureTaskExists(ctx context.Context, container containerd.Container) (containerd.Task, error) {
+	logger := zap.L().With(zap.String("name", container.ID()))
+
+	logger.Debug("ensuring task exists")
+
+	logger.Debug("finding task")
+	task, err := v.findTask(ctx, container)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+	}
+
+	if task != nil {
+		logger.Debug("task found")
+		return task, nil
+	}
+
+	logger.Debug("task not found, creating")
+	return container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+}
+
+func (v *ContainerManager) ensureContainerNotExist(ctx context.Context, name string) error {
+	logger := zap.L().With(zap.String("name", name))
+
+	logger.Debug("ensuring container not exist")
+
+	container, err := v.findContainer(ctx, name)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if container == nil {
+		logger.Warn("container not found")
+		return nil
+	}
+
+	err = v.ensureTaskNotExist(ctx, container)
+	if err != nil {
+		return err
+	}
+
+	return container.Delete(ctx, containerd.WithSnapshotCleanup)
+}
+
+func (v *ContainerManager) ensureTaskNotExist(ctx context.Context, container containerd.Container) error {
+	logger := zap.L().With(zap.String("name", container.ID()))
+
+	logger.Debug("ensuring task not exist")
+
+	task, err := v.findTask(ctx, container)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if task == nil {
+		logger.Warn("task not found")
+		return nil
+	}
+
+	status, err := task.Status(ctx)
+	if err != nil {
+		return err
+	}
+
+	if status.Status != containerd.Stopped {
+		if err := task.Kill(ctx, syscall.SIGKILL, containerd.WithKillAll); err != nil {
+			return err
+		}
+	}
+
+	_, err = task.Delete(ctx)
+	return err
+}
+
+// create container based on spec
+func (v *ContainerManager) create(ctx context.Context, spec *entities.Container) (uint32, error) {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
 	logger := v.getLogger(spec)
 
-	logger.Debug("creating Container")
+	logger.Debug("creating container")
 	name := getContainerName(spec)
 
-	logger.Debug("getting image", zap.String("ImageName", spec.ImageName))
-	image, err := v.getImage(ctx, spec.ImageName)
+	image, err := v.ensureImageExists(ctx, spec.ImageName)
 	if err != nil {
 		return 0, err
 	}
 
-	logger.Debug("creating container")
 	mounts := make([]specs.Mount, len(spec.Volumes))
 	for i, volume := range spec.Volumes {
 		mounts[i] = specs.Mount{
@@ -164,8 +294,7 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 		}
 	}
 
-	container, err := v.client.NewContainer(
-		ctx, name,
+	opts := []containerd.NewContainerOpts{
 		containerd.WithNewSnapshot(name, image),
 		containerd.WithNewSpec(
 			oci.WithImageConfig(image),
@@ -174,52 +303,40 @@ func (v *ContainerManager) createContainer(ctx context.Context, spec *entities.C
 			oci.WithHostDevices,
 			oci.WithMounts(mounts),
 		),
-	)
+	}
+
+	container, err := v.ensureContainerExists(ctx, name, opts...)
 	if err != nil {
 		return 0, err
 	}
 
-	logger.Debug("creating task")
-	task, err := container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+	task, err := v.ensureTaskExists(ctx, container)
 	if err != nil {
 		return 0, err
 	}
 
-	logger.Debug("created Container", zap.Uint32("pid", task.Pid()))
+	logger.Debug("created container", zap.Uint32("pid", task.Pid()))
 	return task.Pid(), nil
 }
 
-func (v *ContainerManager) deleteContainer(ctx context.Context, spec *entities.Container) error {
+// delete container based on spec
+func (v *ContainerManager) delete(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
 	logger := v.getLogger(spec)
 
-	logger.Debug("deleting Container")
+	logger.Debug("deleting container")
 	name := getContainerName(spec)
 
-	container, err := v.findContainer(ctx, name)
+	err := v.ensureContainerNotExist(ctx, name)
 	if err != nil {
-		// TODO: handling error
-		return nil
+		return err
 	}
 
-	task, _ := container.Task(ctx, nil)
-	// TODO: handling error
-
-	if task != nil {
-		logger.Debug("deleting task")
-		_, err = task.Delete(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	logger.Debug("deleting container")
-	err = container.Delete(ctx, containerd.WithSnapshotCleanup)
-
-	logger.Debug("deleted Container")
-	return err
+	logger.Debug("deleted container")
+	return nil
 }
 
+// TODO: refactor
 func (v *ContainerManager) startTask(ctx context.Context, con *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
 	logger := v.getLogger(con)
@@ -232,9 +349,11 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 		return err
 	}
 
-	task, err := container.Task(ctx, nil)
+	task, err := v.findTask(ctx, container)
 	if err != nil {
-		return err
+		if !errors.IsNotFound(err) {
+			return err
+		}
 	}
 
 	err = task.Start(ctx)
@@ -289,6 +408,7 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 	return err
 }
 
+// TODO: refactor
 func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
 	logger := v.getLogger(spec)
@@ -297,22 +417,38 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 	name := getContainerName(spec)
 
 	container, err := v.findContainer(ctx, name)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if container == nil {
+		logger.Warn("container not found")
+		return nil
+	}
+
+	task, err := v.findTask(ctx, container)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if task == nil {
+		logger.Warn("task not found")
+		return nil
+	}
+
+	status, err := task.Status(ctx)
 	if err != nil {
 		return err
 	}
 
-	task, err := container.Task(ctx, nil)
-	if err != nil {
-		// TODO: handling errors which isn't `not found` error
+	if status.Status != containerd.Running {
 		return nil
 	}
 
-	err = task.Kill(ctx, syscall.SIGKILL)
-
-	logger.Debug("killing task")
-	return err
+	return task.Kill(ctx, syscall.SIGKILL)
 }
 
+// TODO: refactor
 func (v *ContainerManager) exec(ctx context.Context, con *entities.Container, args managers.ExecArgs) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
 	logger := v.getLogger(con).With(zap.Any("command", args))
