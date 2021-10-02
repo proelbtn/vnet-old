@@ -48,14 +48,16 @@ type WritableContainer struct {
 	ImageName string
 	Ports     []*WritablePort
 	Commands  []string
+	Volumes   []*WritableContainerVolume
 }
 
-func NewWritableContainer(name string, imageName string, ports []*WritablePort, commands []string) *WritableContainer {
+func NewWritableContainer(name string, imageName string, ports []*WritablePort, commands []string, volumes []*WritableContainerVolume) *WritableContainer {
 	return &WritableContainer{
 		Name:      name,
 		ImageName: imageName,
 		Ports:     ports,
 		Commands:  commands,
+		Volumes:   volumes,
 	}
 }
 
@@ -68,7 +70,32 @@ func (v *WritableContainer) ToEntity(networks []*entities.Network) (*entities.Co
 		}
 		ports[i] = port
 	}
-	return entities.NewContainer(v.Name, v.ImageName, ports, v.Commands, nil)
+
+	volumes := make([]*entities.ContainerVolume, len(v.Volumes))
+	for i := range v.Volumes {
+		volumes[i] = v.Volumes[i].ToEntity()
+	}
+
+	return entities.NewContainer(v.Name, v.ImageName, ports, v.Commands, volumes)
+}
+
+type WritableContainerVolume struct {
+	Source      string
+	Destination string
+}
+
+func NewWritableContainerVolume(source, destination string) *WritableContainerVolume {
+	return &WritableContainerVolume{
+		Source:      source,
+		Destination: destination,
+	}
+}
+
+func (v *WritableContainerVolume) ToEntity() *entities.ContainerVolume {
+	return &entities.ContainerVolume{
+		Source:      v.Source,
+		Destination: v.Destination,
+	}
 }
 
 type WritablePort struct {

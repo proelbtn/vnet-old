@@ -2,6 +2,7 @@ package commands
 
 import (
 	"io/ioutil"
+	"path/filepath"
 
 	"github.com/proelbtn/vnet/pkg/repositories"
 	"github.com/proelbtn/vnet/pkg/usecases"
@@ -53,10 +54,11 @@ func (v *Laboratory) ToWritableLaboratory() (*usecases.WritableLaboratory, error
 }
 
 type Container struct {
-	Name      string   `yaml:"name"`
-	ImageName string   `yaml:"image"`
-	Ports     []*Port  `yaml:"ports"`
-	Commands  []string `yaml:"commands"`
+	Name      string             `yaml:"name"`
+	ImageName string             `yaml:"image"`
+	Ports     []*Port            `yaml:"ports"`
+	Commands  []string           `yaml:"commands"`
+	Volumes   []*ContainerVolume `yaml:"volumes"`
 }
 
 func (v *Container) ToWritableContainer() (*usecases.WritableContainer, error) {
@@ -68,7 +70,17 @@ func (v *Container) ToWritableContainer() (*usecases.WritableContainer, error) {
 		}
 		ports[i] = port
 	}
-	return usecases.NewWritableContainer(v.Name, v.ImageName, ports, v.Commands), nil
+
+	volumes := make([]*usecases.WritableContainerVolume, len(v.Volumes))
+	for i := range v.Volumes {
+		volume, err := v.Volumes[i].ToWritableContainerVolume()
+		if err != nil {
+			return nil, err
+		}
+		volumes[i] = volume
+	}
+
+	return usecases.NewWritableContainer(v.Name, v.ImageName, ports, v.Commands, volumes), nil
 }
 
 type Port struct {
@@ -79,6 +91,20 @@ type Port struct {
 
 func (v *Port) ToWritablePort() (*usecases.WritablePort, error) {
 	return usecases.NewWritablePort(v.Name, v.Network, v.Addresses)
+}
+
+type ContainerVolume struct {
+	Source      string
+	Destination string
+}
+
+func (v *ContainerVolume) ToWritableContainerVolume() (*usecases.WritableContainerVolume, error) {
+	source, err := filepath.Abs(v.Source)
+	if err != nil {
+		return nil, err
+	}
+
+	return usecases.NewWritableContainerVolume(source, v.Destination), nil
 }
 
 type Network struct {
