@@ -55,24 +55,52 @@ func (v *NetworkManager) Delete(ctx context.Context, spec *entities.Network) err
 	return v.delete(spec)
 }
 
-func (v *NetworkManager) findBridge(name string) (netlink.Link, error) {
-	link, err := netlink.LinkByName(name)
+func (v *NetworkManager) CreatePorts(ctx context.Context, pid int, ports []*entities.Port) error {
+	return v.createPorts(ctx, pid, ports)
+}
+
+func (v *NetworkManager) findLinkWithHandler(h *netlink.Handle, name string) (netlink.Link, error) {
+	link, err := h.LinkByName(name)
 	if err != nil {
 		switch err.(type) {
 		case netlink.LinkNotFoundError:
+			return nil, errors.ErrNotFound
 		default:
 			return nil, err
 		}
 	}
 
-	if link != nil {
-		if link.Type() != "bridge" {
-			return nil, errors.ErrInvalidType
-		}
-		return link, nil
+	return link, nil
+}
+
+func (v *NetworkManager) findLink(name string) (netlink.Link, error) {
+	h, err := netlink.NewHandle()
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.ErrNotFound
+	return v.findLinkWithHandler(h, name)
+}
+
+func (v *NetworkManager) findBridgeWithHandler(h *netlink.Handle, name string) (netlink.Link, error) {
+	link, err := v.findLinkWithHandler(h, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if link.Type() != "bridge" {
+		return nil, errors.ErrInvalidType
+	}
+	return link, nil
+}
+
+func (v *NetworkManager) findBridge(name string) (netlink.Link, error) {
+	h, err := netlink.NewHandle()
+	if err != nil {
+		return nil, err
+	}
+
+	return v.findBridgeWithHandler(h, name)
 }
 
 func (v *NetworkManager) ensureBridgeExists(name string) error {
@@ -120,75 +148,6 @@ func (v *NetworkManager) ensureBridgeNotExist(name string) error {
 	return netlink.LinkDel(bridge)
 }
 
-func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*entities.Port) error {
-	logger := zap.L()
-
-	logger.Debug("creating bridge")
-
-	nsHandle, err := netns.GetFromPid(pid)
-	if err != nil {
-		return err
-	}
-
-	defaultNsHandler, err := netlink.NewHandle()
-	if err != nil {
-		return err
-	}
-
-	containerNsHandler, err := netlink.NewHandleAt(nsHandle)
-	if err != nil {
-		return err
-	}
-
-	logger.Debug("creating ports")
-	for _, port := range ports {
-		logger.Debug("creating port", zap.String("Name", port.Name))
-
-		attrs := netlink.NewLinkAttrs()
-		attrs.Name = GetPortName(port)
-		attrs.Flags = attrs.Flags | net.FlagUp
-
-		veth := &netlink.Veth{
-			LinkAttrs:     attrs,
-			PeerName:      port.Name,
-			PeerNamespace: netlink.NsPid(pid),
-		}
-
-		err := defaultNsHandler.LinkAdd(veth)
-		if err != nil {
-			return err
-		}
-
-		bridge, err := defaultNsHandler.LinkByName(GetBridgeName(port.Network))
-		if err != nil {
-			return err
-		}
-
-		err = defaultNsHandler.LinkSetMaster(veth, bridge)
-		if err != nil {
-			return err
-		}
-
-		peer, err := containerNsHandler.LinkByName(port.Name)
-		if err != nil {
-			return err
-		}
-
-		err = containerNsHandler.LinkSetUp(peer)
-		if err != nil {
-			return err
-		}
-
-		for _, addr := range port.IPAddrs {
-			containerNsHandler.AddrAdd(peer, &netlink.Addr{
-				IPNet: addr,
-			})
-		}
-	}
-
-	return nil
-}
-
 func (v *NetworkManager) create(spec *entities.Network) error {
 	logger := v.getLogger(spec)
 
@@ -216,5 +175,89 @@ func (v *NetworkManager) delete(network *entities.Network) error {
 	}
 
 	logger.Debug("deleted bridge")
+	return nil
+}
+
+func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *entities.Port) error {
+	logger := zap.L().With(zap.Int("pid", pid)).With(zap.String("name", port.Name))
+
+	logger.Debug("ensuring port is attached")
+
+	nsHandle, err := netns.GetFromPid(pid)
+	if err != nil {
+		return err
+	}
+
+	containerNetlinkHandler, err := netlink.NewHandleAt(nsHandle)
+	if err != nil {
+		return err
+	}
+
+	bridge, err := v.findBridge(GetBridgeName(port.Network))
+	if err != nil {
+		return err
+	}
+
+	link, err := v.findLink(GetPortName(port))
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if link == nil {
+		attrs := netlink.NewLinkAttrs()
+		attrs.MTU = bridge.Attrs().MTU
+		attrs.Name = GetPortName(port)
+		attrs.Flags = attrs.Flags | net.FlagUp
+		attrs.MasterIndex = bridge.Attrs().Index
+
+		link = &netlink.Veth{
+			LinkAttrs:     attrs,
+			PeerName:      port.Name,
+			PeerNamespace: netlink.NsPid(pid),
+		}
+
+		if err := netlink.LinkAdd(link); err != nil {
+			return err
+		}
+	}
+
+	peer, err := v.findLinkWithHandler(containerNetlinkHandler, port.Name)
+	if err != nil {
+		return err
+	}
+
+	if err := containerNetlinkHandler.LinkSetUp(peer); err != nil {
+		return err
+	}
+
+	if err := containerNetlinkHandler.LinkSetMTU(peer, bridge.Attrs().MTU); err != nil {
+		return err
+	}
+
+	for _, addr := range port.IPAddrs {
+		err = containerNetlinkHandler.AddrReplace(peer, &netlink.Addr{
+			IPNet: addr,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (v *NetworkManager) createPorts(ctx context.Context, pid int, ports []*entities.Port) error {
+	logger := zap.L()
+
+	logger.Debug("creating ports")
+
+	for _, port := range ports {
+		err := v.ensurePortAttached(ctx, pid, port)
+		if err != nil {
+			return err
+		}
+	}
+
+	logger.Debug("created ports")
 	return nil
 }

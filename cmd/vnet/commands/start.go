@@ -24,11 +24,6 @@ var StartCommand = &cli.Command{
 }
 
 func start(c *cli.Context) error {
-	usecase, err := getUsecase()
-	if err != nil {
-		return err
-	}
-
 	if c.Bool("debug") {
 		logger, err := zap.NewDevelopment()
 		if err != nil {
@@ -43,8 +38,20 @@ func start(c *cli.Context) error {
 		zap.ReplaceGlobals(logger)
 	}
 
-	manifestPath := c.String("manifest")
+	if err := tryStart(c); err != nil {
+		zap.L().Error("could not start laboratory", zap.Error(err))
+	}
 
+	return nil
+}
+
+func tryStart(c *cli.Context) error {
+	usecase, err := getUsecase()
+	if err != nil {
+		return err
+	}
+
+	manifestPath := c.String("manifest")
 	lab, err := loadManifest(manifestPath)
 	if err != nil {
 		return err
@@ -55,10 +62,5 @@ func start(c *cli.Context) error {
 		return err
 	}
 
-	err = usecase.StartLaboratory(req)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return usecase.StartLaboratory(req)
 }

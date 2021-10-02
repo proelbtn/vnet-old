@@ -80,7 +80,7 @@ func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory)
 			return err
 		}
 
-		err = v.networkManager.AttachPorts(ctx, int(pid), container.Ports)
+		err = v.networkManager.CreatePorts(ctx, int(pid), container.Ports)
 		if err != nil {
 			return err
 		}

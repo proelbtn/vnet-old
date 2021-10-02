@@ -262,9 +262,16 @@ func (v *ContainerManager) ensureTaskNotExist(ctx context.Context, container con
 	}
 
 	if status.Status != containerd.Stopped {
+		pchan, err := task.Wait(ctx)
+		if err != nil {
+			return err
+		}
+
 		if err := task.Kill(ctx, syscall.SIGKILL, containerd.WithKillAll); err != nil {
 			return err
 		}
+
+		<-pchan
 	}
 
 	_, err = task.Delete(ctx)
