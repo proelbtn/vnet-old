@@ -9,7 +9,7 @@ import (
 
 var ExecCommand = &cli.Command{
 	Name:  "exec",
-	Usage: "Execute laboratory in container",
+	Usage: "Execute command in laboratory",
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "debug",
