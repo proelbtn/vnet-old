@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net"
 
 	"github.com/proelbtn/vnet/pkg/entities"
+	"github.com/proelbtn/vnet/pkg/errors"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
@@ -47,12 +47,77 @@ func (v *NetworkManager) getLogger(network *entities.Network) *zap.Logger {
 	)
 }
 
-func (v *NetworkManager) Create(ctx context.Context, network *entities.Network) error {
-	return v.createBridge(network)
+func (v *NetworkManager) Create(ctx context.Context, spec *entities.Network) error {
+	return v.create(spec)
 }
 
-func (v *NetworkManager) Delete(ctx context.Context, network *entities.Network) error {
-	return v.deleteBridge(network)
+func (v *NetworkManager) Delete(ctx context.Context, spec *entities.Network) error {
+	return v.delete(spec)
+}
+
+func (v *NetworkManager) findBridge(name string) (netlink.Link, error) {
+	link, err := netlink.LinkByName(name)
+	if err != nil {
+		switch err.(type) {
+		case netlink.LinkNotFoundError:
+		default:
+			return nil, err
+		}
+	}
+
+	if link != nil {
+		if link.Type() != "bridge" {
+			return nil, errors.ErrInvalidType
+		}
+		return link, nil
+	}
+
+	return nil, errors.ErrNotFound
+}
+
+func (v *NetworkManager) ensureBridgeExists(name string) error {
+	logger := zap.L().With(zap.String("name", name))
+
+	logger.Debug("ensuring bridge exists")
+
+	logger.Debug("finding bridge")
+	bridge, err := v.findBridge(name)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if bridge != nil {
+		logger.Warn("bridge found")
+		return nil
+	}
+
+	logger.Debug("bridge not found, creating")
+
+	attrs := netlink.NewLinkAttrs()
+	attrs.Name = name
+	attrs.Flags = attrs.Flags | net.FlagUp
+
+	return netlink.LinkAdd(&netlink.Bridge{
+		LinkAttrs: attrs,
+	})
+}
+
+func (v *NetworkManager) ensureBridgeNotExist(name string) error {
+	logger := zap.L().With(zap.String("name", name))
+
+	logger.Debug("ensuring bridge not exist")
+
+	bridge, err := v.findBridge(name)
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if bridge == nil {
+		logger.Warn("bridge not found")
+		return nil
+	}
+
+	return netlink.LinkDel(bridge)
 }
 
 func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*entities.Port) error {
@@ -124,41 +189,13 @@ func (v *NetworkManager) AttachPorts(ctx context.Context, pid int, ports []*enti
 	return nil
 }
 
-func (v *NetworkManager) createBridge(network *entities.Network) error {
-	logger := v.getLogger(network)
+func (v *NetworkManager) create(spec *entities.Network) error {
+	logger := v.getLogger(spec)
 
 	logger.Debug("creating bridge")
 
-	logger.Debug("checking bridge is already created")
-	link, err := netlink.LinkByName(GetBridgeName(network))
-	if err != nil {
-		switch err.(type) {
-		case netlink.LinkNotFoundError:
-			// link may not exist, skipped
-		default:
-			return err
-		}
-	}
-
-	if link != nil {
-		if link.Type() != "bridge" {
-			return errors.New("link found, but not brdige")
-		}
-		logger.Debug("bridge is already created, skipped")
-		return nil
-	}
-
-	logger.Debug("bridge is not already created, creating")
-
-	attrs := netlink.NewLinkAttrs()
-	attrs.Name = GetBridgeName(network)
-	attrs.Flags = attrs.Flags | net.FlagUp
-
-	bridge := &netlink.Bridge{
-		LinkAttrs: attrs,
-	}
-
-	err = netlink.LinkAdd(bridge)
+	name := GetBridgeName(spec)
+	err := v.ensureBridgeExists(name)
 	if err != nil {
 		return err
 	}
@@ -167,28 +204,13 @@ func (v *NetworkManager) createBridge(network *entities.Network) error {
 	return nil
 }
 
-func (v *NetworkManager) deleteBridge(network *entities.Network) error {
+func (v *NetworkManager) delete(network *entities.Network) error {
 	logger := v.getLogger(network)
 
 	logger.Debug("deleting bridge")
 
 	name := GetBridgeName(network)
-	link, err := netlink.LinkByName(name)
-	if err != nil {
-		switch err.(type) {
-		case netlink.LinkNotFoundError:
-			logger.Warn("link not found")
-			return nil
-		default:
-			return err
-		}
-	}
-
-	if link.Type() != "bridge" {
-		return fmt.Errorf("link found, but not bridge")
-	}
-
-	err = netlink.LinkDel(link)
+	err := v.ensureBridgeNotExist(name)
 	if err != nil {
 		return err
 	}

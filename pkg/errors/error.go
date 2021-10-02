@@ -9,6 +9,7 @@ var (
 	ErrAlreadyExists = fmt.Errorf("already exists")
 	ErrNotFound      = fmt.Errorf("not found")
 	ErrInvalidName   = fmt.Errorf("invalid name")
+	ErrInvalidType   = fmt.Errorf("invalid type")
 )
 
 func Is(err, target error) bool {
@@ -25,4 +26,8 @@ func IsNotFound(err error) bool {
 
 func IsInvalidName(err error) bool {
 	return Is(err, ErrNotFound)
+}
+
+func IsInvalidType(err error) bool {
+	return Is(err, ErrInvalidType)
 }
