@@ -297,7 +297,7 @@ func (v *ContainerManager) create(ctx context.Context, spec *entities.Container)
 			Source:      volume.Source,
 			Destination: volume.Destination,
 			Type:        "none",
-			Options:     []string{"bind"},
+			Options:     []string{"ro", "bind"},
 		}
 	}
 
@@ -309,6 +309,7 @@ func (v *ContainerManager) create(ctx context.Context, spec *entities.Container)
 			oci.WithAllDevicesAllowed,
 			oci.WithHostDevices,
 			oci.WithMounts(mounts),
+			oci.WithoutRunMount,
 		),
 	}
 
