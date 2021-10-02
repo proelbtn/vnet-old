@@ -1,0 +1,80 @@
+name: bgp_vpnv6
+networks:
+  - name: R1-R2
+  - name: R1-C1
+  - name: R2-C2
+containers:
+  - name: R1
+    image: docker.io/tinynetwork/frr:develop
+    ports:
+      - { name: net0, network: R1-R2, addresses: ["2001:ffff::1/64"] }
+      - { name: net1, network: R1-C1 }
+    commands:
+      - sysctl -w 'net.ipv6.conf.all.forwarding=1'
+      - sysctl -w 'net.ipv6.conf.all.disable_ipv6=0'
+      - sysctl -w 'net.ipv6.conf.all.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.default.forwarding=1'
+      - sysctl -w 'net.ipv6.conf.default.disable_ipv6=0'
+      - sysctl -w 'net.ipv6.conf.default.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.lo.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.net0.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.net1.seg6_enabled=1'
+      - sysctl -w 'net.ipv4.conf.all.rp_filter=0'
+      - sysctl -w 'net.ipv4.conf.lo.rp_filter=0'
+      - sysctl -w 'net.ipv4.conf.net0.rp_filter=0'
+      - sysctl -w 'net.ipv4.conf.net1.rp_filter=0'
+      - ip link add vrf100 type vrf table 100
+      - ip link set vrf100 up
+      - ip link set dev net1 vrf vrf100
+      - ip addr add 2001:bb11::1/64 dev net1
+      - /usr/lib/frr/frrinit.sh start
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./R1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: R2
+    image: docker.io/tinynetwork/frr:develop
+    ports:
+      - { name: net0, network: R1-R2, addresses: ["2001:ffff::2/64"] }
+      - { name: net1, network: R2-C2 }
+    commands:
+      - sysctl -w 'net.ipv6.conf.all.forwarding=1'
+      - sysctl -w 'net.ipv6.conf.all.disable_ipv6=0'
+      - sysctl -w 'net.ipv6.conf.all.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.default.forwarding=1'
+      - sysctl -w 'net.ipv6.conf.default.disable_ipv6=0'
+      - sysctl -w 'net.ipv6.conf.default.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.lo.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.net0.seg6_enabled=1'
+      - sysctl -w 'net.ipv6.conf.net1.seg6_enabled=1'
+      - sysctl -w 'net.ipv4.conf.all.rp_filter=0'
+      - sysctl -w 'net.ipv4.conf.lo.rp_filter=0'
+      - sysctl -w 'net.ipv4.conf.net0.rp_filter=0'
+      - sysctl -w 'net.ipv4.conf.net1.rp_filter=0'
+      - ip link add vrf100 type vrf table 100
+      - ip link set vrf100 up
+      - ip link set dev net1 vrf vrf100
+      - ip addr add 2001:bb22::1/64 dev net1
+      - /usr/lib/frr/frrinit.sh start
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./R2/frr.conf, destination: /etc/frr/frr.conf }
+  - name: C1
+    image: docker.io/tinynetwork/frr:develop
+    ports:
+      - { name: net0, network: R1-C1, addresses: ["2001:bb11::2/64"] }
+    commands:
+      - sysctl -w 'net.ipv6.conf.all.disable_ipv6=0'
+      - /usr/lib/frr/frrinit.sh start
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./C1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: C2
+    image: docker.io/tinynetwork/frr:develop
+    ports:
+      - { name: net0, network: R2-C2, addresses: ["2001:bb22::2/64"] }
+    commands:
+      - sysctl -w 'net.ipv6.conf.all.disable_ipv6=0'
+      - /usr/lib/frr/frrinit.sh start
+    volumes:
+      - { source: ./deamons, destination: /etc/frr/deamons }
+      - { source: ./C2/frr.conf, destination: /etc/frr/frr.conf }
