@@ -81,19 +81,15 @@ func (v *InstantLaboratoryUsecase) Exec(req *WritableLaboratory, name string, ar
 		return err
 	}
 
-	for _, container := range lab.Containers {
-		if container.Name == name {
-			execArgs := managers.ExecArgs{
-				Args: args,
-			}
-			if err := v.containerManager.Exec(ctx, container, execArgs); err != nil {
-				return err
-			}
-			return nil
-		}
+	container, err := v.findContainer(lab, name)
+	if err != nil {
+		return err
 	}
 
-	return errors.ErrNotFound
+	execArgs := managers.ExecArgs{
+		Args: args,
+	}
+	return v.containerManager.Exec(ctx, container, execArgs)
 }
 
 func (v *InstantLaboratoryUsecase) GetPortName(req *WritableLaboratory, containerName, portName string) (string, error) {
