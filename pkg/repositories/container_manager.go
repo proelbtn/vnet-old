@@ -215,7 +215,13 @@ func (v *ContainerManager) ensureTaskExists(ctx context.Context, container conta
 	}
 
 	logger.Debug("task not found, creating")
-	return container.NewTask(ctx, cio.NewCreator(cio.WithStdio))
+
+	devnull, err := os.OpenFile("/dev/null", os.O_RDWR, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return container.NewTask(ctx, cio.NewCreator(cio.WithStreams(devnull, devnull, devnull)))
 }
 
 func (v *ContainerManager) ensureContainerNotExist(ctx context.Context, name string) error {
