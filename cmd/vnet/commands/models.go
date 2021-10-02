@@ -23,7 +23,7 @@ func getUsecase() (*usecases.InstantLaboratoryUsecase, error) {
 	}
 
 	laboratoryManager := repositories.NewLaboratoryManager(containerManager, networkManager)
-	usecase := usecases.NewInstantLaboratoryUsecase(laboratoryManager)
+	usecase := usecases.NewInstantLaboratoryUsecase(laboratoryManager, containerManager, networkManager)
 
 	return usecase, nil
 }

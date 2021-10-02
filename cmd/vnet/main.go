@@ -13,6 +13,7 @@ func main() {
 		Name:  "vnet",
 		Usage: "Virtual Network Laboratory",
 		Commands: []*cli.Command{
+			commands.ExecCommand,
 			commands.StartCommand,
 			commands.StopCommand,
 		},
