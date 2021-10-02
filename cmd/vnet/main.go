@@ -14,6 +14,7 @@ func main() {
 		Usage: "Virtual Network Laboratory",
 		Commands: []*cli.Command{
 			commands.ExecCommand,
+			commands.GetCommand,
 			commands.StartCommand,
 			commands.StopCommand,
 		},
