@@ -59,6 +59,14 @@ func (v *NetworkManager) CreatePorts(ctx context.Context, pid int, ports []*enti
 	return v.createPorts(ctx, pid, ports)
 }
 
+func (v *NetworkManager) GetBridgeName(network *entities.Network) string {
+	return GetBridgeName(network)
+}
+
+func (v *NetworkManager) GetPortName(port *entities.Port) string {
+	return GetPortName(port)
+}
+
 func (v *NetworkManager) findLinkWithHandler(h *netlink.Handle, name string) (netlink.Link, error) {
 	link, err := h.LinkByName(name)
 	if err != nil {

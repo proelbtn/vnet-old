@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 
+	"github.com/proelbtn/vnet/pkg/entities"
 	"github.com/proelbtn/vnet/pkg/errors"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 )
@@ -21,6 +22,36 @@ func NewInstantLaboratoryUsecase(laboratoryManager managers.LaboratoryManager, c
 		containerManager:  containerManager,
 		networkManager:    networkManager,
 	}
+}
+
+func (v *InstantLaboratoryUsecase) findNetwork(lab *entities.Laboratory, name string) (*entities.Network, error) {
+	for _, container := range lab.Networks {
+		if container.Name == name {
+			return container, nil
+		}
+	}
+
+	return nil, errors.ErrNotFound
+}
+
+func (v *InstantLaboratoryUsecase) findContainer(lab *entities.Laboratory, name string) (*entities.Container, error) {
+	for _, container := range lab.Containers {
+		if container.Name == name {
+			return container, nil
+		}
+	}
+
+	return nil, errors.ErrNotFound
+}
+
+func (v *InstantLaboratoryUsecase) findPort(container *entities.Container, name string) (*entities.Port, error) {
+	for _, port := range container.Ports {
+		if port.Name == name {
+			return port, nil
+		}
+	}
+
+	return nil, errors.ErrNotFound
 }
 
 func (v *InstantLaboratoryUsecase) StartLaboratory(req *WritableLaboratory) error {
@@ -63,4 +94,37 @@ func (v *InstantLaboratoryUsecase) Exec(req *WritableLaboratory, name string, ar
 	}
 
 	return errors.ErrNotFound
+}
+
+func (v *InstantLaboratoryUsecase) GetPortName(req *WritableLaboratory, containerName, portName string) (string, error) {
+	lab, err := req.ToEntity()
+	if err != nil {
+		return "", err
+	}
+
+	container, err := v.findContainer(lab, containerName)
+	if err != nil {
+		return "", err
+	}
+
+	port, err := v.findPort(container, portName)
+	if err != nil {
+		return "", err
+	}
+
+	return v.networkManager.GetPortName(port), nil
+}
+
+func (v *InstantLaboratoryUsecase) GetBridgeName(req *WritableLaboratory, networkName string) (string, error) {
+	lab, err := req.ToEntity()
+	if err != nil {
+		return "", err
+	}
+
+	network, err := v.findNetwork(lab, networkName)
+	if err != nil {
+		return "", err
+	}
+
+	return v.networkManager.GetBridgeName(network), nil
 }
