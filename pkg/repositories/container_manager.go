@@ -278,6 +278,37 @@ func (v *ContainerManager) ensureTaskNotExist(ctx context.Context, container con
 	return err
 }
 
+func (v *ContainerManager) execute(ctx context.Context, task containerd.Task, pspec *specs.Process) error {
+	logger := zap.L().With(zap.Any("args", pspec.Args))
+
+	logger.Debug("executing command")
+	proc, err := task.Exec(ctx, "vnet-exec", pspec, cio.NullIO)
+	if err != nil {
+		return err
+	}
+
+	pchan, err := proc.Wait(ctx)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("starting command")
+	if err = proc.Start(ctx); err != nil {
+		return err
+	}
+
+	logger.Debug("waiting command")
+	status := <-pchan
+
+	logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
+
+	if _, err := proc.Delete(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // create container based on spec
 func (v *ContainerManager) create(ctx context.Context, spec *entities.Container) (uint32, error) {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
@@ -392,33 +423,10 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 			return err
 		}
 
-		logger := logger.With(zap.Any("command", args))
-
 		pspec := spec.Process
 		pspec.Args = args
 
-		logger.Debug("executing command")
-		proc, err := task.Exec(ctx, "vnet-exec", pspec, cio.NullIO)
-		if err != nil {
-			return err
-		}
-
-		pchan, err := proc.Wait(ctx)
-		if err != nil {
-			return err
-		}
-
-		logger.Debug("starting command")
-		if err = proc.Start(ctx); err != nil {
-			return err
-		}
-
-		logger.Debug("waiting command")
-		status := <-pchan
-
-		logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
-
-		if _, err := proc.Delete(ctx); err != nil {
+		if err := v.execute(ctx, task, pspec); err != nil {
 			return err
 		}
 	}
