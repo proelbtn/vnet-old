@@ -363,6 +363,16 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 		}
 	}
 
+	status, err := task.Status(ctx)
+	if err != nil {
+		return err
+	}
+
+	switch status.Status {
+	case containerd.Running:
+		return nil
+	}
+
 	err = task.Start(ctx)
 	if err != nil {
 		return err
