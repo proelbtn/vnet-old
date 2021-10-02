@@ -328,7 +328,7 @@ func (v *ContainerManager) create(ctx context.Context, spec *entities.Container)
 			Source:      volume.Source,
 			Destination: volume.Destination,
 			Type:        "none",
-			Options:     []string{"ro", "bind"},
+			Options:     []string{"ro", "rbind"},
 		}
 	}
 
