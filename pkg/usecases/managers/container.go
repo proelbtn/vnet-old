@@ -11,4 +11,9 @@ type ContainerManager interface {
 	Start(ctx context.Context, container *entities.Container) error
 	Stop(ctx context.Context, container *entities.Container) error
 	Delete(ctx context.Context, container *entities.Container) error
+	Exec(ctx context.Context, container *entities.Container, args ExecArgs) error
+}
+
+type ExecArgs struct {
+	Args []string
 }

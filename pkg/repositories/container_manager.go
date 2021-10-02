@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"syscall"
 
+	"github.com/containerd/console"
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/namespaces"
@@ -92,6 +94,10 @@ func (v *ContainerManager) Stop(ctx context.Context, spec *entities.Container) e
 
 func (v *ContainerManager) Delete(ctx context.Context, spec *entities.Container) error {
 	return v.deleteContainer(ctx, spec)
+}
+
+func (v *ContainerManager) Exec(ctx context.Context, spec *entities.Container, args managers.ExecArgs) error {
+	return v.exec(ctx, spec, args)
 }
 
 func getNamespaceName(spec *entities.Container) string {
@@ -292,5 +298,85 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 	err = task.Kill(ctx, syscall.SIGKILL)
 
 	logger.Debug("killing task")
+	return err
+}
+
+func (v *ContainerManager) exec(ctx context.Context, con *entities.Container, args managers.ExecArgs) error {
+	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
+	logger := v.getLogger(con).With(zap.Any("command", args))
+
+	logger.Debug("starting task")
+	container, err := v.findContainer(ctx, getContainerName(con))
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("executing commands")
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return err
+	}
+
+	task, err := container.Task(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	// TODO: it's really okay?
+	// ref: https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/tasks/exec.go
+	pspec := spec.Process
+	pspec.Args = args.Args
+	pspec.Terminal = true
+
+	logger.Debug("executing command")
+	consol := console.Current()
+	if err := consol.SetRaw(); err != nil {
+		return err
+	}
+
+	proc, err := task.Exec(ctx, "vnet-exec", pspec, cio.NewCreator(
+		cio.WithStreams(consol, consol, nil),
+		cio.WithTerminal,
+	))
+	if err != nil {
+		return err
+	}
+
+	pchan, err := proc.Wait(ctx)
+	if err != nil {
+		return err
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT)
+
+	logger.Debug("starting command")
+	if err = proc.Start(ctx); err != nil {
+		return err
+	}
+
+	logger.Debug("waiting command")
+	select {
+	case <-sigs:
+		logger.Debug("signal received, killing command")
+		err := proc.Kill(ctx, syscall.SIGKILL)
+		if err != nil {
+			return err
+		}
+		logger.Debug("killed command")
+	case <-pchan:
+		status := <-pchan
+		logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
+	}
+
+	if err := consol.Reset(); err != nil {
+		return err
+	}
+
+	if _, err := proc.Delete(ctx); err != nil {
+		return err
+	}
+
+	logger.Debug("executed command")
 	return err
 }
