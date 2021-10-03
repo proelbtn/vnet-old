@@ -1,0 +1,44 @@
+name: isis_simple
+networks:
+  - name: R1
+  - name: R1-R2
+  - name: R2-R3
+  - name: R3-R4
+  - name: R4
+containers:
+  - name: R1
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: R1 }
+      - { name: eth1, network: R1-R2 }
+    commands: []
+    volumes:
+      - { source: ./R1/daemons, destination: /etc/frr/daemons }
+      - { source: ./R1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: R2
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: R1-R2 }
+      - { name: eth1, network: R2-R3 }
+    commands: []
+    volumes:
+      - { source: ./R2/daemons, destination: /etc/frr/daemons }
+      - { source: ./R2/frr.conf, destination: /etc/frr/frr.conf }
+  - name: R3
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: R2-R3 }
+      - { name: eth1, network: R3-R4 }
+    commands: []
+    volumes:
+      - { source: ./R3/daemons, destination: /etc/frr/daemons }
+      - { source: ./R3/frr.conf, destination: /etc/frr/frr.conf }
+  - name: R4
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: R3-R4 }
+      - { name: eth1, network: R4 }
+    commands: []
+    volumes:
+      - { source: ./R4/daemons, destination: /etc/frr/daemons }
+      - { source: ./R4/frr.conf, destination: /etc/frr/frr.conf }
