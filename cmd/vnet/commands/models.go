@@ -109,10 +109,16 @@ func (v *ContainerVolume) ToWritableContainerVolume() (*usecases.WritableContain
 
 type Network struct {
 	Name string `yaml:"name"`
+	Mtu  int    `yaml:"mtu"`
 }
 
 func (v *Network) ToWritableNetwork() *usecases.WritableNetwork {
-	return usecases.NewWritableNetwork(v.Name)
+	mtu := 1500
+	if v.Mtu != 0 {
+		mtu = v.Mtu
+	}
+
+	return usecases.NewWritableNetwork(v.Name, mtu)
 }
 
 func loadManifest(manifestPath string) (*Laboratory, error) {

@@ -4,10 +4,11 @@ import "fmt"
 
 type Network struct {
 	Name       string
+	Mtu        int
 	Laboratory *Laboratory
 }
 
-func NewNetwork(name string) (*Network, error) {
+func NewNetwork(name string, mtu int) (*Network, error) {
 	err := validateName(name)
 	if err != nil {
 		return nil, err
@@ -15,6 +16,7 @@ func NewNetwork(name string) (*Network, error) {
 
 	return &Network{
 		Name:       name,
+		Mtu:        mtu,
 		Laboratory: nil,
 	}, nil
 }

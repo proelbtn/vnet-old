@@ -111,10 +111,12 @@ func (v *NetworkManager) findBridge(name string) (netlink.Link, error) {
 	return v.findBridgeWithHandler(h, name)
 }
 
-func (v *NetworkManager) ensureBridgeExists(name string) error {
-	logger := zap.L().With(zap.String("name", name))
+func (v *NetworkManager) ensureBridgeExists(spec *entities.Network) error {
+	logger := zap.L().With(zap.String("name", spec.Name))
 
 	logger.Debug("ensuring bridge exists")
+
+	name := GetBridgeName(spec)
 
 	logger.Debug("finding bridge")
 	bridge, err := v.findBridge(name)
@@ -130,6 +132,7 @@ func (v *NetworkManager) ensureBridgeExists(name string) error {
 	logger.Debug("bridge not found, creating")
 
 	attrs := netlink.NewLinkAttrs()
+	attrs.MTU = spec.Mtu
 	attrs.Name = name
 	attrs.Flags = attrs.Flags | net.FlagUp
 
@@ -138,10 +141,12 @@ func (v *NetworkManager) ensureBridgeExists(name string) error {
 	})
 }
 
-func (v *NetworkManager) ensureBridgeNotExist(name string) error {
-	logger := zap.L().With(zap.String("name", name))
+func (v *NetworkManager) ensureBridgeNotExist(spec *entities.Network) error {
+	logger := zap.L().With(zap.String("name", spec.Name))
 
 	logger.Debug("ensuring bridge not exist")
+
+	name := GetBridgeName(spec)
 
 	bridge, err := v.findBridge(name)
 	if err != nil && !errors.IsNotFound(err) {
@@ -161,8 +166,7 @@ func (v *NetworkManager) create(spec *entities.Network) error {
 
 	logger.Debug("creating bridge")
 
-	name := GetBridgeName(spec)
-	err := v.ensureBridgeExists(name)
+	err := v.ensureBridgeExists(spec)
 	if err != nil {
 		return err
 	}
@@ -171,13 +175,12 @@ func (v *NetworkManager) create(spec *entities.Network) error {
 	return nil
 }
 
-func (v *NetworkManager) delete(network *entities.Network) error {
-	logger := v.getLogger(network)
+func (v *NetworkManager) delete(spec *entities.Network) error {
+	logger := v.getLogger(spec)
 
 	logger.Debug("deleting bridge")
 
-	name := GetBridgeName(network)
-	err := v.ensureBridgeNotExist(name)
+	err := v.ensureBridgeNotExist(spec)
 	if err != nil {
 		return err
 	}

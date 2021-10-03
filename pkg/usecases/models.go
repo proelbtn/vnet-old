@@ -133,16 +133,18 @@ func (v *WritablePort) ToEntity(networks []*entities.Network) (*entities.Port, e
 
 type WritableNetwork struct {
 	Name string
+	Mtu  int
 }
 
-func NewWritableNetwork(name string) *WritableNetwork {
+func NewWritableNetwork(name string, mtu int) *WritableNetwork {
 	return &WritableNetwork{
 		Name: name,
+		Mtu:  mtu,
 	}
 }
 
 func (v *WritableNetwork) ToEntity() (*entities.Network, error) {
-	return entities.NewNetwork(v.Name)
+	return entities.NewNetwork(v.Name, v.Mtu)
 }
 
 type Laboratory struct {
