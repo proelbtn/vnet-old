@@ -11,7 +11,7 @@ func main() {
 	ctx := context.Background()
 	manager := repositories.NewNetworkManger()
 
-	network, err := entities.NewNetwork("test")
+	network, err := entities.NewNetwork("test", 1500)
 	if err != nil {
 		panic(err)
 	}

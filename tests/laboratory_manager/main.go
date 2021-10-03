@@ -26,7 +26,7 @@ func main() {
 
 	manager := repositories.NewLaboratoryManager(containerManager, networkManager)
 
-	network, err := entities.NewNetwork("test")
+	network, err := entities.NewNetwork("test", 1500)
 	if err != nil {
 		panic(err)
 	}
