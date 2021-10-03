@@ -1,0 +1,13 @@
+name: jumboframe
+networks:
+  - name: C1-C2
+    mtu: 9000
+containers:
+  - name: C1
+    image: docker.io/nicolaka/netshoot:latest
+    ports:
+      - { name: eth0, network: C1-C2, addresses: ["192.168.0.1/24"] }
+  - name: C2
+    image: docker.io/nicolaka/netshoot:latest
+    ports:
+      - { name: eth0, network: C1-C2, addresses: ["192.168.0.2/24"] }
