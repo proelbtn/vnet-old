@@ -342,6 +342,7 @@ func (v *ContainerManager) create(ctx context.Context, spec *entities.Container)
 		containerd.WithNewSnapshot(name, image),
 		containerd.WithNewSpec(
 			oci.WithImageConfig(image),
+			oci.WithHostname(spec.Name),
 			oci.WithPrivileged,
 			oci.WithAllDevicesAllowed,
 			oci.WithHostDevices,
