@@ -107,6 +107,11 @@ func (v *LaboratoryManager) Stop(ctx context.Context, lab *entities.Laboratory) 
 			return err
 		}
 
+		err = v.networkManager.DeletePorts(ctx, container.Ports)
+		if err != nil {
+			return err
+		}
+
 		err = v.containerManager.Delete(ctx, container)
 		if err != nil {
 			return err

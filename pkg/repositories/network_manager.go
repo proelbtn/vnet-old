@@ -59,6 +59,10 @@ func (v *NetworkManager) CreatePorts(ctx context.Context, pid int, ports []*enti
 	return v.createPorts(ctx, pid, ports)
 }
 
+func (v *NetworkManager) DeletePorts(ctx context.Context, ports []*entities.Port) error {
+	return v.deletePorts(ctx, ports)
+}
+
 func (v *NetworkManager) GetBridgeName(network *entities.Network) string {
 	return GetBridgeName(network)
 }
@@ -161,34 +165,6 @@ func (v *NetworkManager) ensureBridgeNotExist(spec *entities.Network) error {
 	return netlink.LinkDel(bridge)
 }
 
-func (v *NetworkManager) create(spec *entities.Network) error {
-	logger := v.getLogger(spec)
-
-	logger.Debug("creating bridge")
-
-	err := v.ensureBridgeExists(spec)
-	if err != nil {
-		return err
-	}
-
-	logger.Debug("created bridge")
-	return nil
-}
-
-func (v *NetworkManager) delete(spec *entities.Network) error {
-	logger := v.getLogger(spec)
-
-	logger.Debug("deleting bridge")
-
-	err := v.ensureBridgeNotExist(spec)
-	if err != nil {
-		return err
-	}
-
-	logger.Debug("deleted bridge")
-	return nil
-}
-
 func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *entities.Port) error {
 	logger := zap.L().With(zap.Int("pid", pid)).With(zap.String("name", port.Name))
 
@@ -257,6 +233,51 @@ func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *
 	return nil
 }
 
+func (v *NetworkManager) ensurePortNotExist(ctx context.Context, port *entities.Port) error {
+	logger := zap.L().With(zap.String("name", port.Name))
+
+	logger.Debug("ensuring port not exist")
+
+	link, err := v.findLink(GetPortName(port))
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	if link == nil {
+		return nil
+	}
+
+	return netlink.LinkDel(link)
+}
+
+func (v *NetworkManager) create(spec *entities.Network) error {
+	logger := v.getLogger(spec)
+
+	logger.Debug("creating bridge")
+
+	err := v.ensureBridgeExists(spec)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("created bridge")
+	return nil
+}
+
+func (v *NetworkManager) delete(spec *entities.Network) error {
+	logger := v.getLogger(spec)
+
+	logger.Debug("deleting bridge")
+
+	err := v.ensureBridgeNotExist(spec)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("deleted bridge")
+	return nil
+}
+
 func (v *NetworkManager) createPorts(ctx context.Context, pid int, ports []*entities.Port) error {
 	logger := zap.L()
 
@@ -270,5 +291,21 @@ func (v *NetworkManager) createPorts(ctx context.Context, pid int, ports []*enti
 	}
 
 	logger.Debug("created ports")
+	return nil
+}
+
+func (v *NetworkManager) deletePorts(ctx context.Context, ports []*entities.Port) error {
+	logger := zap.L()
+
+	logger.Debug("deleting ports")
+
+	for _, port := range ports {
+		err := v.ensurePortNotExist(ctx, port)
+		if err != nil {
+			return err
+		}
+	}
+
+	logger.Debug("deleted ports")
 	return nil
 }
