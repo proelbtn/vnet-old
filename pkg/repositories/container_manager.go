@@ -287,6 +287,9 @@ func (v *ContainerManager) ensureTaskNotExist(ctx context.Context, container con
 func (v *ContainerManager) execute(ctx context.Context, task containerd.Task, id string, pspec *specs.Process, creator cio.Creator) error {
 	logger := zap.L().With(zap.Any("args", pspec.Args))
 
+	schan := make(chan os.Signal, 1)
+	signal.Notify(schan, syscall.SIGINT)
+
 	logger.Debug("executing command")
 	proc, err := task.Exec(ctx, id, pspec, creator)
 	if err != nil {
@@ -297,20 +300,24 @@ func (v *ContainerManager) execute(ctx context.Context, task containerd.Task, id
 	if err != nil {
 		return err
 	}
+	defer proc.Delete(ctx)
 
 	logger.Debug("starting command")
 	if err = proc.Start(ctx); err != nil {
 		return err
 	}
 
-	logger.Debug("waiting command")
-	status := <-pchan
-
-	logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
-
-	if _, err := proc.Delete(ctx); err != nil {
-		return err
+	select {
+	case <-schan:
+		err := proc.Kill(ctx, syscall.SIGKILL)
+		if err != nil {
+			return err
+		}
+	case <-pchan:
 	}
+
+	status := <-pchan
+	logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
 
 	return nil
 }
@@ -486,78 +493,36 @@ func (v *ContainerManager) exec(ctx context.Context, con *entities.Container, ar
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
 	logger := v.getLogger(con).With(zap.Any("command", args))
 
-	logger.Debug("starting task")
 	container, err := v.findContainer(ctx, getContainerName(con))
 	if err != nil {
 		return err
 	}
 
+	task, err := v.findTask(ctx, container)
+	if err != nil {
+		return err
+	}
+
+	consol := console.Current()
+	if err := consol.SetRaw(); err != nil {
+		return err
+	}
+	defer consol.Reset()
+
+	// TODO: it's really okay?
+	// ref: https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/tasks/exec.go
 	logger.Debug("executing commands")
 	spec, err := container.Spec(ctx)
 	if err != nil {
 		return err
 	}
 
-	task, err := container.Task(ctx, nil)
-	if err != nil {
-		return err
-	}
-
-	// TODO: it's really okay?
-	// ref: https://github.com/containerd/containerd/blob/main/cmd/ctr/commands/tasks/exec.go
 	pspec := spec.Process
 	pspec.Args = args.Args
 	pspec.Terminal = true
 
-	logger.Debug("executing command")
-	consol := console.Current()
-	if err := consol.SetRaw(); err != nil {
-		return err
-	}
-
-	proc, err := task.Exec(ctx, "vnet-exec", pspec, cio.NewCreator(
+	return v.execute(ctx, task, "vnet-exec", pspec, cio.NewCreator(
 		cio.WithStreams(consol, consol, nil),
 		cio.WithTerminal,
 	))
-	if err != nil {
-		return err
-	}
-
-	pchan, err := proc.Wait(ctx)
-	if err != nil {
-		return err
-	}
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT)
-
-	logger.Debug("starting command")
-	if err = proc.Start(ctx); err != nil {
-		return err
-	}
-
-	logger.Debug("waiting command")
-	select {
-	case <-sigs:
-		logger.Debug("signal received, killing command")
-		err := proc.Kill(ctx, syscall.SIGKILL)
-		if err != nil {
-			return err
-		}
-		logger.Debug("killed command")
-	case <-pchan:
-		status := <-pchan
-		logger.Debug("executed command", zap.Uint32("code", status.ExitCode()))
-	}
-
-	if err := consol.Reset(); err != nil {
-		return err
-	}
-
-	if _, err := proc.Delete(ctx); err != nil {
-		return err
-	}
-
-	logger.Debug("executed command")
-	return err
 }
