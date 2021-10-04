@@ -1,0 +1,235 @@
+name: bgp_l3vpn_mpls2
+networks:
+  - name: C11-CE11
+  - name: C12-CE12
+  - name: C21-CE21
+  - name: C22-CE22
+  - name: CE11-PE1
+  - name: CE12-PE3
+  - name: CE21-PE1
+  - name: CE22-PE2
+  - name: PE1-P1
+  - name: PE1-P2
+  - name: PE2-P5
+  - name: PE3-P6
+  - name: P1-P2
+  - name: P1-P3
+  - name: P2-P4
+  - name: P3-P4
+  - name: P3-P5
+  - name: P3-RR
+  - name: P4-P6
+  - name: P4-RR
+  - name: P5-P6
+containers:
+  # containers for client 100
+  - name: C11
+    image: docker.io/nicolaka/netshoot:latest
+    ports:
+      - { name: eth0, network: C11-CE11, addresses: ["192.168.1.1/24"] }
+    commands:
+      - ip route add default via 192.168.1.254
+  - name: C12
+    image: docker.io/nicolaka/netshoot:latest
+    ports:
+      - { name: eth0, network: C12-CE12, addresses: ["192.168.2.1/24"] }
+    commands:
+      - ip route add default via 192.168.2.254
+  - name: CE11
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: CE11-PE1 }
+      - { name: eth9, network: C11-CE11 }
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./CE11/frr.conf, destination: /etc/frr/frr.conf }
+  - name: CE12
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: CE12-PE3 }
+      - { name: eth9, network: C12-CE12 }
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./CE12/frr.conf, destination: /etc/frr/frr.conf }
+
+  # containers for client 200
+  - name: C21
+    image: docker.io/nicolaka/netshoot:latest
+    ports:
+      - { name: eth0, network: C21-CE21, addresses: ["192.168.1.1/24"] }
+    commands:
+      - ip route add default via 192.168.1.254
+  - name: C22
+    image: docker.io/nicolaka/netshoot:latest
+    ports:
+      - { name: eth0, network: C22-CE22, addresses: ["192.168.2.1/24"] }
+    commands:
+      - ip route add default via 192.168.2.254
+  - name: CE21
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: CE21-PE1 }
+      - { name: eth9, network: C21-CE21 }
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./CE21/frr.conf, destination: /etc/frr/frr.conf }
+  - name: CE22
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: CE22-PE2 }
+      - { name: eth9, network: C22-CE22 }
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./CE22/frr.conf, destination: /etc/frr/frr.conf }
+
+  # containers for provider edge router
+  - name: PE1
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: PE1-P1 }
+      - { name: eth1, network: PE1-P2 }
+      - { name: eth8, network: CE11-PE1 }
+      - { name: eth9, network: CE21-PE1 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - ip link add name vrf100 type vrf table 100
+      - ip link add name vrf200 type vrf table 200
+      - ip link set eth8 master vrf100
+      - ip link set eth9 master vrf200
+      - ip link set vrf100 up
+      - ip link set vrf200 up
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./PE1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: PE2
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: PE2-P5 }
+      - { name: eth9, network: CE22-PE2 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - ip link add name vrf200 type vrf table 200
+      - ip link set eth9 master vrf200
+      - ip link set vrf200 up
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./PE2/frr.conf, destination: /etc/frr/frr.conf }
+  - name: PE3
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: PE3-P6 }
+      - { name: eth9, network: CE12-PE3 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - ip link add name vrf100 type vrf table 100
+      - ip link set eth9 master vrf100
+      - ip link set vrf100 up
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./PE3/frr.conf, destination: /etc/frr/frr.conf }
+
+  # containers for provider router
+  - name: P1
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: PE1-P1 }
+      - { name: eth1, network: P1-P2 }
+      - { name: eth2, network: P1-P3 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - sysctl net.mpls.conf.eth2.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./P1/frr.conf, destination: /etc/frr/frr.conf }
+  - name: P2
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: PE1-P2 }
+      - { name: eth1, network: P1-P2 }
+      - { name: eth2, network: P2-P4 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - sysctl net.mpls.conf.eth2.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./P2/frr.conf, destination: /etc/frr/frr.conf }
+  - name: P3
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: P1-P3 }
+      - { name: eth1, network: P3-P4 }
+      - { name: eth2, network: P3-P5 }
+      - { name: eth3, network: P3-RR }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - sysctl net.mpls.conf.eth2.input=1
+      - sysctl net.mpls.conf.eth3.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./P3/frr.conf, destination: /etc/frr/frr.conf }
+  - name: P4
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: P2-P4 }
+      - { name: eth1, network: P3-P4 }
+      - { name: eth2, network: P4-P6 }
+      - { name: eth3, network: P4-RR }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - sysctl net.mpls.conf.eth2.input=1
+      - sysctl net.mpls.conf.eth3.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./P4/frr.conf, destination: /etc/frr/frr.conf }
+  - name: P5
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: P3-P5 }
+      - { name: eth1, network: P5-P6 }
+      - { name: eth2, network: PE2-P5 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - sysctl net.mpls.conf.eth2.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./P5/frr.conf, destination: /etc/frr/frr.conf }
+  - name: P6
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: P4-P6 }
+      - { name: eth1, network: P5-P6 }
+      - { name: eth2, network: PE3-P6 }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+      - sysctl net.mpls.conf.eth2.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./P6/frr.conf, destination: /etc/frr/frr.conf }
+  - name: RR
+    image: docker.io/frrouting/frr:v8.0.0
+    ports:
+      - { name: eth0, network: P3-RR }
+      - { name: eth1, network: P4-RR }
+    commands:
+      - sysctl net.mpls.platform_labels=1048575
+      - sysctl net.mpls.conf.eth0.input=1
+      - sysctl net.mpls.conf.eth1.input=1
+    volumes:
+      - { source: ./daemons, destination: /etc/frr/daemons }
+      - { source: ./RR/frr.conf, destination: /etc/frr/frr.conf }
