@@ -40,7 +40,11 @@ func (v *WritableLaboratory) ToEntity() (*entities.Laboratory, error) {
 		containers[i] = container
 	}
 
-	return entities.NewLaboratory(v.Name, containers, networks)
+	return entities.NewLaboratory(
+		v.Name,
+		entities.WithContainers(containers),
+		entities.WithNetworks(networks),
+	)
 }
 
 type WritableContainer struct {
@@ -76,7 +80,11 @@ func (v *WritableContainer) ToEntity(networks []*entities.Network) (*entities.Co
 		volumes[i] = v.Volumes[i].ToEntity()
 	}
 
-	return entities.NewContainer(v.Name, v.ImageName, ports, v.Commands, volumes)
+	return entities.NewContainer(v.Name, v.ImageName,
+		entities.WithPorts(ports),
+		entities.WithCommands(v.Commands),
+		entities.WithVolumes(volumes),
+	)
 }
 
 type WritableContainerVolume struct {
@@ -125,7 +133,10 @@ func NewWritablePort(name string, network string, addresses []string) (*Writable
 func (v *WritablePort) ToEntity(networks []*entities.Network) (*entities.Port, error) {
 	for _, network := range networks {
 		if v.Network == network.Name {
-			return entities.NewPort(v.Name, network, v.Addresses)
+			return entities.NewPort(
+				v.Name, network,
+				entities.WithIPAddresses(v.Addresses),
+			)
 		}
 	}
 	return nil, errors.ErrNotFound
@@ -144,7 +155,10 @@ func NewWritableNetwork(name string, mtu int) *WritableNetwork {
 }
 
 func (v *WritableNetwork) ToEntity() (*entities.Network, error) {
-	return entities.NewNetwork(v.Name, v.Mtu)
+	return entities.NewNetwork(
+		v.Name,
+		entities.WithMtu(v.Mtu),
+	)
 }
 
 type Laboratory struct {
