@@ -406,7 +406,6 @@ func (v *ContainerManager) delete(ctx context.Context, spec *entities.Container)
 	return nil
 }
 
-// TODO: refactor
 func (v *ContainerManager) startTask(ctx context.Context, con *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
 	logger := v.getLogger(con)
@@ -420,24 +419,17 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 	}
 
 	task, err := v.findTask(ctx, container)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	status, err := task.Status(ctx)
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
 
-	switch status.Status {
-	case containerd.Running:
+	if status, err := task.Status(ctx); err != nil {
+		return err
+	} else if status.Status == containerd.Running {
 		return nil
 	}
 
-	err = task.Start(ctx)
-	if err != nil {
+	if err := task.Start(ctx); err != nil {
 		return err
 	}
 	logger.Debug("started task")
@@ -462,10 +454,10 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 		}
 	}
 
-	return err
+	logger.Debug("executed commands")
+	return nil
 }
 
-// TODO: refactor
 func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Container) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(spec))
 	logger := v.getLogger(spec)
@@ -498,11 +490,14 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 		return err
 	}
 
-	if status.Status != containerd.Running {
-		return nil
+	if status.Status == containerd.Running {
+		if err := task.Kill(ctx, syscall.SIGKILL); err != nil {
+			return err
+		}
 	}
 
-	return task.Kill(ctx, syscall.SIGKILL)
+	logger.Debug("killed task")
+	return nil
 }
 
 func (v *ContainerManager) exec(ctx context.Context, con *entities.Container, args managers.ExecArgs) error {
