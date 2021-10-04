@@ -17,7 +17,7 @@ func stop(c *cli.Context) error {
 		return err
 	}
 
-	usecase, err := getUsecase()
+	usecase, err := newUsecase()
 	if err != nil {
 		return err
 	}

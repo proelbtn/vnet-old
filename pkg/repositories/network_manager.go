@@ -30,13 +30,15 @@ func hashForNetworkManager(s string) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func GetBridgeName(network *entities.Network) string {
-	idStr := hashForNetworkManager(network.GetUniqueName())
+func GetBridgeName(labName, networkName string) string {
+	uniqueName := fmt.Sprintf("%s/%s", labName, networkName)
+	idStr := hashForNetworkManager(uniqueName)
 	return fmt.Sprintf("br-%s", idStr[:12])
 }
 
-func GetPortName(port *entities.Port) string {
-	idStr := hashForNetworkManager(port.GetUniqueName())
+func GetPortName(labName, containerName, portName string) string {
+	uniqueName := fmt.Sprintf("%s/%s/%s", labName, containerName, portName)
+	idStr := hashForNetworkManager(uniqueName)
 	return fmt.Sprintf("po-%s", idStr[:12])
 }
 
@@ -63,12 +65,20 @@ func (v *NetworkManager) DeletePorts(ctx context.Context, ports []*entities.Port
 	return v.deletePorts(ctx, ports)
 }
 
-func (v *NetworkManager) GetBridgeName(network *entities.Network) string {
-	return GetBridgeName(network)
+func (v *NetworkManager) GetBridgeName(labName, networkName string) string {
+	return GetBridgeName(labName, networkName)
 }
 
-func (v *NetworkManager) GetPortName(port *entities.Port) string {
-	return GetPortName(port)
+func (v *NetworkManager) GetPortName(labName, containerName, portName string) string {
+	return GetPortName(labName, containerName, portName)
+}
+
+func (v *NetworkManager) getBridgeName(network *entities.Network) string {
+	return v.GetBridgeName(network.Laboratory.Name, network.Name)
+}
+
+func (v *NetworkManager) getPortName(port *entities.Port) string {
+	return v.GetPortName(port.Container.Laboratory.Name, port.Container.Name, port.Name)
 }
 
 func (v *NetworkManager) findLinkWithHandler(h *netlink.Handle, name string) (netlink.Link, error) {
@@ -120,7 +130,7 @@ func (v *NetworkManager) ensureBridgeExists(spec *entities.Network) error {
 
 	logger.Debug("ensuring bridge exists")
 
-	name := GetBridgeName(spec)
+	name := v.getBridgeName(spec)
 
 	logger.Debug("finding bridge")
 	bridge, err := v.findBridge(name)
@@ -150,7 +160,7 @@ func (v *NetworkManager) ensureBridgeNotExist(spec *entities.Network) error {
 
 	logger.Debug("ensuring bridge not exist")
 
-	name := GetBridgeName(spec)
+	name := v.getBridgeName(spec)
 
 	bridge, err := v.findBridge(name)
 	if err != nil && !errors.IsNotFound(err) {
@@ -180,12 +190,12 @@ func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *
 		return err
 	}
 
-	bridge, err := v.findBridge(GetBridgeName(port.Network))
+	bridge, err := v.findBridge(v.getBridgeName(port.Network))
 	if err != nil {
 		return err
 	}
 
-	link, err := v.findLink(GetPortName(port))
+	link, err := v.findLink(v.getPortName(port))
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}
@@ -193,7 +203,7 @@ func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *
 	if link == nil {
 		attrs := netlink.NewLinkAttrs()
 		attrs.MTU = bridge.Attrs().MTU
-		attrs.Name = GetPortName(port)
+		attrs.Name = v.getPortName(port)
 		attrs.Flags = attrs.Flags | net.FlagUp
 		attrs.MasterIndex = bridge.Attrs().Index
 
@@ -238,7 +248,7 @@ func (v *NetworkManager) ensurePortNotExist(ctx context.Context, port *entities.
 
 	logger.Debug("ensuring port not exist")
 
-	link, err := v.findLink(GetPortName(port))
+	link, err := v.findLink(v.getPortName(port))
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

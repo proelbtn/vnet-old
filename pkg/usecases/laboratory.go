@@ -92,35 +92,10 @@ func (v *LaboratoryUsecase) Exec(req *WritableLaboratory, name string, args []st
 	return v.containerManager.Exec(ctx, container, execArgs)
 }
 
-func (v *LaboratoryUsecase) GetPortName(req *WritableLaboratory, containerName, portName string) (string, error) {
-	lab, err := req.ToEntity()
-	if err != nil {
-		return "", err
-	}
-
-	container, err := v.findContainer(lab, containerName)
-	if err != nil {
-		return "", err
-	}
-
-	port, err := v.findPort(container, portName)
-	if err != nil {
-		return "", err
-	}
-
-	return v.networkManager.GetPortName(port), nil
+func (v *LaboratoryUsecase) GetPortName(labName, containerName, portName string) string {
+	return v.networkManager.GetPortName(labName, containerName, portName)
 }
 
-func (v *LaboratoryUsecase) GetBridgeName(req *WritableLaboratory, networkName string) (string, error) {
-	lab, err := req.ToEntity()
-	if err != nil {
-		return "", err
-	}
-
-	network, err := v.findNetwork(lab, networkName)
-	if err != nil {
-		return "", err
-	}
-
-	return v.networkManager.GetBridgeName(network), nil
+func (v *LaboratoryUsecase) GetBridgeName(labName, networkName string) string {
+	return v.networkManager.GetBridgeName(labName, networkName)
 }

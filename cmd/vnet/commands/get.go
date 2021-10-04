@@ -10,7 +10,6 @@ import (
 var GetCommand = &cli.Command{
 	Name:  "get",
 	Usage: "Get information in laboratory",
-	Flags: append([]cli.Flag{}, commonFlags...),
 	Subcommands: []*cli.Command{
 		GetPortNameCommand,
 	},
@@ -19,6 +18,7 @@ var GetCommand = &cli.Command{
 var GetPortNameCommand = &cli.Command{
 	Name:      "port",
 	Usage:     "Get port name in container",
+	Flags:     append([]cli.Flag{}, commonFlags...),
 	ArgsUsage: "CONTAINER PORT",
 	Action:    getPortName,
 }
@@ -29,12 +29,7 @@ func getPortName(c *cli.Context) error {
 		return err
 	}
 
-	usecase, err := getUsecase()
-	if err != nil {
-		return err
-	}
-
-	req, err := lab.ToWritableLaboratory()
+	usecase, err := newUsecase(WithMockContainerManager)
 	if err != nil {
 		return err
 	}
@@ -46,10 +41,7 @@ func getPortName(c *cli.Context) error {
 	containerName := c.Args().Get(0)
 	portName := c.Args().Get(1)
 
-	name, err := usecase.GetPortName(req, containerName, portName)
-	if err != nil {
-		return err
-	}
+	name := usecase.GetPortName(lab.Name, containerName, portName)
 
 	fmt.Println(name)
 	return nil

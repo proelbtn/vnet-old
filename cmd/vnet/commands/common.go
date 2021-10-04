@@ -5,6 +5,7 @@ import (
 
 	"github.com/proelbtn/vnet/pkg/repositories"
 	"github.com/proelbtn/vnet/pkg/usecases"
+	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"github.com/urfave/cli/v2"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -16,7 +17,6 @@ const (
 	FlagOverrideName = "override-name"
 )
 
-var usecase *usecases.LaboratoryUsecase = nil
 var commonFlags = []cli.Flag{
 	&cli.BoolFlag{
 		Name:  FlagDebug,
@@ -90,19 +90,65 @@ func initialize(c *cli.Context) (*Laboratory, error) {
 	return lab, err
 }
 
-func getUsecase() (*usecases.LaboratoryUsecase, error) {
-	if usecase != nil {
-		return usecase, nil
+type newUsecaseArgs struct {
+	networkManager   managers.NetworkManager
+	containerManager managers.ContainerManager
+}
+
+type newUsecaseOpts func(*newUsecaseArgs) error
+
+func newUsecase(options ...newUsecaseOpts) (*usecases.LaboratoryUsecase, error) {
+	args := &newUsecaseArgs{
+		networkManager:   nil,
+		containerManager: nil,
 	}
 
-	networkManager := repositories.NewNetworkManger()
-	containerManager, err := repositories.NewContainerManager()
-	if err != nil {
-		return nil, err
+	for _, option := range options {
+		if err := option(args); err != nil {
+			return nil, err
+		}
+	}
+
+	networkManager := args.networkManager
+	if networkManager == nil {
+		networkManager = repositories.NewNetworkManger()
+	}
+
+	containerManager := args.containerManager
+	if containerManager == nil {
+		manager, err := repositories.NewContainerManager()
+		if err != nil {
+			return nil, err
+		}
+		containerManager = manager
 	}
 
 	laboratoryManager := repositories.NewLaboratoryManager(containerManager, networkManager)
 	usecase := usecases.NewLaboratoryUsecase(laboratoryManager, containerManager, networkManager)
 
 	return usecase, nil
+}
+
+func WithContainerManager(args *newUsecaseArgs) error {
+	containerManager, err := repositories.NewContainerManager()
+	if err != nil {
+		return err
+	}
+	args.containerManager = containerManager
+	return nil
+}
+
+func WithMockContainerManager(args *newUsecaseArgs) error {
+	args.containerManager = repositories.NewMockContainerManager()
+	return nil
+}
+
+func WithNetworkManager(args *newUsecaseArgs) error {
+	args.networkManager = repositories.NewNetworkManger()
+	return nil
+}
+
+func WithMockNetworkManager(args *newUsecaseArgs) error {
+	args.networkManager = repositories.NewMockNetworkManger()
+	return nil
 }
