@@ -1,0 +1,4 @@
+bgpd=yes
+isisd=yes
+ldpd=yes
+pathd=yes
