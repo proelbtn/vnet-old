@@ -1,12 +1,15 @@
 package entities
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Container struct {
-	Name       string
+	Name      string
+	ImageName string
+
 	Laboratory *Laboratory
 
-	ImageName            string
 	EnvironmentVariables map[string]string
 	Ports                []*Port
 	Commands             []string
@@ -18,31 +21,102 @@ type ContainerVolume struct {
 	Destination string
 }
 
-func NewContainer(name string, imageName string, ports []*Port, commands []string, volumes []*ContainerVolume) (*Container, error) {
+type NewContainerOpts func(*Container) error
+
+func NewContainer(name string, imageName string, options ...NewContainerOpts) (*Container, error) {
+	container := &Container{
+		Name:      name,
+		ImageName: imageName,
+	}
+
+	for _, option := range options {
+		if err := option(container); err != nil {
+			return nil, err
+		}
+	}
+
 	err := validateName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	con := &Container{
-		Name:                 name,
-		Laboratory:           nil,
-		ImageName:            imageName,
-		EnvironmentVariables: make(map[string]string),
-		Ports:                make([]*Port, 0),
-		Commands:             commands,
-		Volumes:              volumes,
-	}
-
-	for _, port := range ports {
-		port.Container = con
-	}
-	con.Ports = ports
-
-	return con, nil
+	return container, nil
 }
 
-func (v *Container) SetLaboratory(env *Laboratory) {
+func WithEnvironmentVariable(key, value string) NewContainerOpts {
+	return func(container *Container) error {
+		container.EnvironmentVariables[key] = value
+		return nil
+	}
+}
+
+func WithEnvironmentVariables(variables map[string]string) NewContainerOpts {
+	return func(container *Container) error {
+		for key, value := range variables {
+			if err := WithEnvironmentVariable(key, value)(container); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func WithPort(port *Port) NewContainerOpts {
+	return func(container *Container) error {
+		container.Ports = append(container.Ports, port)
+		return nil
+	}
+}
+
+func WithPorts(ports []*Port) NewContainerOpts {
+	return func(container *Container) error {
+		for _, port := range ports {
+			port.SetContainer(container)
+			if err := WithPort(port)(container); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func WithCommand(cmd string) NewContainerOpts {
+	return func(container *Container) error {
+		container.Commands = append(container.Commands, cmd)
+		return nil
+	}
+}
+
+func WithCommands(cmds []string) NewContainerOpts {
+	return func(container *Container) error {
+		for _, cmd := range cmds {
+			if err := WithCommand(cmd)(container); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func WithVolume(volume *ContainerVolume) NewContainerOpts {
+	return func(container *Container) error {
+		container.Volumes = append(container.Volumes, volume)
+		return nil
+	}
+}
+
+func WithVolumes(volumes []*ContainerVolume) NewContainerOpts {
+	return func(container *Container) error {
+		for _, volume := range volumes {
+			if err := WithVolume(volume)(container); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func (v *Container) setLaboratory(env *Laboratory) {
 	v.Laboratory = env
 }
 

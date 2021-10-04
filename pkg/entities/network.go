@@ -8,20 +8,41 @@ type Network struct {
 	Laboratory *Laboratory
 }
 
-func NewNetwork(name string, mtu int) (*Network, error) {
+type NewNetworkOpts func(*Network) error
+
+func NewNetwork(name string, options ...NewNetworkOpts) (*Network, error) {
+	network := &Network{
+		Name: name,
+		Mtu:  1500,
+	}
+
+	for _, option := range options {
+		if err := option(network); err != nil {
+			return nil, err
+		}
+	}
+
 	err := validateName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Network{
-		Name:       name,
-		Mtu:        mtu,
-		Laboratory: nil,
-	}, nil
+	return network, nil
 }
 
-func (v *Network) SetLaboratory(env *Laboratory) {
+func WithJumboframe(network *Network) error {
+	network.Mtu = 9000
+	return nil
+}
+
+func WithMtu(mtu int) NewNetworkOpts {
+	return func(network *Network) error {
+		network.Mtu = mtu
+		return nil
+	}
+}
+
+func (v *Network) setLaboratory(env *Laboratory) {
 	v.Laboratory = env
 }
 

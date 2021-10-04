@@ -12,21 +12,48 @@ type Port struct {
 	IPAddrs   []*net.IPNet
 }
 
-func NewPort(name string, network *Network, addrs []*net.IPNet) (*Port, error) {
+type NewPortOpts func(*Port) error
+
+func NewPort(name string, network *Network, options ...NewPortOpts) (*Port, error) {
+	port := &Port{
+		Name:    name,
+		Network: network,
+	}
+
+	for _, option := range options {
+		if err := option(port); err != nil {
+			return nil, err
+		}
+	}
+
 	err := validateName(name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Port{
-		Name:    name,
-		Network: network,
-		IPAddrs: addrs,
-	}, nil
+	return port, nil
 }
 
-func (v *Port) SetContainer(con *Container) {
-	v.Container = con
+func WithIPAddress(addr *net.IPNet) NewPortOpts {
+	return func(port *Port) error {
+		port.IPAddrs = append(port.IPAddrs, addr)
+		return nil
+	}
+}
+
+func WithIPAddresses(addrs []*net.IPNet) NewPortOpts {
+	return func(port *Port) error {
+		for _, addr := range addrs {
+			if err := WithIPAddress(addr)(port); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+func (v *Port) SetContainer(container *Container) {
+	v.Container = container
 }
 
 func NewIPAddress(cidr string) (*net.IPNet, error) {
