@@ -5,24 +5,12 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
-	"go.uber.org/zap"
 )
 
 var GetCommand = &cli.Command{
 	Name:  "get",
 	Usage: "Get information in laboratory",
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:  "debug",
-			Value: false,
-			Usage: "debug",
-		},
-		&cli.StringFlag{
-			Name:  "manifest",
-			Value: "./lab.yaml",
-			Usage: "manifest for laboratory",
-		},
-	},
+	Flags: append([]cli.Flag{}, commonFlags...),
 	Subcommands: []*cli.Command{
 		GetPortNameCommand,
 	},
@@ -36,35 +24,12 @@ var GetPortNameCommand = &cli.Command{
 }
 
 func getPortName(c *cli.Context) error {
-	if c.Args().Len() != 2 {
-		return errors.New("container name and port name are needed")
-	}
-
-	containerName := c.Args().Get(0)
-	portName := c.Args().Get(1)
-
-	if c.Bool("debug") {
-		logger, err := zap.NewDevelopment()
-		if err != nil {
-			return err
-		}
-		zap.ReplaceGlobals(logger)
-	} else {
-		logger, err := zap.NewProduction()
-		if err != nil {
-			return err
-		}
-		zap.ReplaceGlobals(logger)
-	}
-
-	usecase, err := getUsecase()
+	lab, err := initialize(c)
 	if err != nil {
 		return err
 	}
 
-	manifestPath := c.String("manifest")
-
-	lab, err := loadManifest(manifestPath)
+	usecase, err := getUsecase()
 	if err != nil {
 		return err
 	}
@@ -73,6 +38,13 @@ func getPortName(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if c.Args().Len() != 2 {
+		return errors.New("container name and port name are needed")
+	}
+
+	containerName := c.Args().Get(0)
+	portName := c.Args().Get(1)
 
 	name, err := usecase.GetPortName(req, containerName, portName)
 	if err != nil {

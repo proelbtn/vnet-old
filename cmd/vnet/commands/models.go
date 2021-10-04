@@ -1,33 +1,10 @@
 package commands
 
 import (
-	"io/ioutil"
 	"path/filepath"
 
-	"github.com/proelbtn/vnet/pkg/repositories"
 	"github.com/proelbtn/vnet/pkg/usecases"
-	"gopkg.in/yaml.v3"
 )
-
-// TODO: refactoring
-var usecase *usecases.LaboratoryUsecase = nil
-
-func getUsecase() (*usecases.LaboratoryUsecase, error) {
-	if usecase != nil {
-		return usecase, nil
-	}
-
-	networkManager := repositories.NewNetworkManger()
-	containerManager, err := repositories.NewContainerManager()
-	if err != nil {
-		return nil, err
-	}
-
-	laboratoryManager := repositories.NewLaboratoryManager(containerManager, networkManager)
-	usecase := usecases.NewLaboratoryUsecase(laboratoryManager, containerManager, networkManager)
-
-	return usecase, nil
-}
 
 type Laboratory struct {
 	Name       string       `yaml:"name"`
@@ -119,20 +96,4 @@ func (v *Network) ToWritableNetwork() *usecases.WritableNetwork {
 	}
 
 	return usecases.NewWritableNetwork(v.Name, mtu)
-}
-
-func loadManifest(manifestPath string) (*Laboratory, error) {
-	var lab Laboratory
-
-	manifest, err := ioutil.ReadFile(manifestPath)
-	if err != nil {
-		return nil, err
-	}
-
-	err = yaml.Unmarshal(manifest, &lab)
-	if err != nil {
-		return nil, err
-	}
-
-	return &lab, nil
 }
