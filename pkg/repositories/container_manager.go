@@ -284,11 +284,11 @@ func (v *ContainerManager) ensureTaskNotExist(ctx context.Context, container con
 	return err
 }
 
-func (v *ContainerManager) execute(ctx context.Context, task containerd.Task, pspec *specs.Process) error {
+func (v *ContainerManager) execute(ctx context.Context, task containerd.Task, id string, pspec *specs.Process, creator cio.Creator) error {
 	logger := zap.L().With(zap.Any("args", pspec.Args))
 
 	logger.Debug("executing command")
-	proc, err := task.Exec(ctx, "vnet-exec", pspec, cio.NullIO)
+	proc, err := task.Exec(ctx, id, pspec, creator)
 	if err != nil {
 		return err
 	}
@@ -433,7 +433,7 @@ func (v *ContainerManager) startTask(ctx context.Context, con *entities.Containe
 		pspec := spec.Process
 		pspec.Args = args
 
-		if err := v.execute(ctx, task, pspec); err != nil {
+		if err := v.execute(ctx, task, "vnet-exec", pspec, cio.NullIO); err != nil {
 			return err
 		}
 	}
