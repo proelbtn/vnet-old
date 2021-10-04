@@ -2,6 +2,9 @@ package repositories
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/signal"
@@ -104,6 +107,20 @@ func getNamespaceName(spec *entities.Container) string {
 
 func getContainerName(spec *entities.Container) string {
 	return fmt.Sprintf("%s-%s", spec.Laboratory.Name, spec.Name)
+}
+
+func hashForContainerManager() string {
+	data := make([]byte, 64)
+	rand.Read(data)
+
+	hasher := sha1.New()
+	hasher.Write(data)
+
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func generateEphemeralTaskId() string {
+	return fmt.Sprintf("vnet-exec-%s", hashForContainerManager()[:12])
 }
 
 // findImage tries to find image specified with name
@@ -285,7 +302,7 @@ func (v *ContainerManager) ensureTaskNotExist(ctx context.Context, container con
 }
 
 func (v *ContainerManager) execute(ctx context.Context, task containerd.Task, id string, pspec *specs.Process, creator cio.Creator) error {
-	logger := zap.L().With(zap.Any("args", pspec.Args))
+	logger := zap.L().With(zap.String("id", id)).With(zap.Any("args", pspec.Args))
 
 	schan := make(chan os.Signal, 1)
 	signal.Notify(schan, syscall.SIGINT)
@@ -488,7 +505,6 @@ func (v *ContainerManager) stopTask(ctx context.Context, spec *entities.Containe
 	return task.Kill(ctx, syscall.SIGKILL)
 }
 
-// TODO: refactor
 func (v *ContainerManager) exec(ctx context.Context, con *entities.Container, args managers.ExecArgs) error {
 	ctx = namespaces.WithNamespace(ctx, getNamespaceName(con))
 	logger := v.getLogger(con).With(zap.Any("command", args))
@@ -517,11 +533,13 @@ func (v *ContainerManager) exec(ctx context.Context, con *entities.Container, ar
 		return err
 	}
 
+	taskId := generateEphemeralTaskId()
+
 	pspec := spec.Process
 	pspec.Args = args.Args
 	pspec.Terminal = true
 
-	return v.execute(ctx, task, "vnet-exec", pspec, cio.NewCreator(
+	return v.execute(ctx, task, taskId, pspec, cio.NewCreator(
 		cio.WithStreams(consol, consol, nil),
 		cio.WithTerminal,
 	))
