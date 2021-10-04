@@ -19,15 +19,15 @@ func main() {
 	container, err := entities.NewContainer(
 		"test",
 		"docker.io/library/redis:alpine",
-		nil,
-		nil,
-		nil,
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = entities.NewLaboratory("test", []*entities.Container{container}, nil)
+	_, err = entities.NewLaboratory(
+		"test",
+		entities.WithContainer(container),
+	)
 	if err != nil {
 		panic(err)
 	}

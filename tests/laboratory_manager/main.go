@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"net"
 	"time"
 
 	"github.com/proelbtn/vnet/pkg/entities"
@@ -26,7 +25,7 @@ func main() {
 
 	manager := repositories.NewLaboratoryManager(containerManager, networkManager)
 
-	network, err := entities.NewNetwork("test", 1500)
+	network, err := entities.NewNetwork("test")
 	if err != nil {
 		panic(err)
 	}
@@ -36,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	port, err := entities.NewPort("eth0", network, []*net.IPNet{addr})
+	port, err := entities.NewPort("eth0", network, entities.WithIPAddress(addr))
 	if err != nil {
 		panic(err)
 	}
@@ -44,15 +43,13 @@ func main() {
 	container, err := entities.NewContainer(
 		"test",
 		"docker.io/nicolaka/netshoot:latest",
-		[]*entities.Port{port},
-		nil,
-		nil,
+		entities.WithPort(port),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	lab, err := entities.NewLaboratory("test", []*entities.Container{container}, []*entities.Network{network})
+	lab, err := entities.NewLaboratory("test", entities.WithContainer(container), entities.WithNetwork(network))
 	if err != nil {
 		panic(err)
 	}
