@@ -99,3 +99,12 @@ func (v *LaboratoryUsecase) GetPortName(labName, containerName, portName string)
 func (v *LaboratoryUsecase) GetBridgeName(labName, networkName string) string {
 	return v.networkManager.GetBridgeName(labName, networkName)
 }
+
+func (v *LaboratoryUsecase) GetTopology(req *WritableLaboratory) (string, error) {
+	lab, err := req.ToEntity()
+	if err != nil {
+		return "", err
+	}
+
+	return renderTopology(lab)
+}

@@ -17,6 +17,7 @@ func main() {
 			commands.GetCommand,
 			commands.StartCommand,
 			commands.StopCommand,
+			commands.TopologyCommand,
 		},
 	}
 
