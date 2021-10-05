@@ -15,6 +15,7 @@ func main() {
 		Commands: []*cli.Command{
 			commands.ExecCommand,
 			commands.GetCommand,
+			commands.RestartCommand,
 			commands.StartCommand,
 			commands.StopCommand,
 			commands.TopologyCommand,
