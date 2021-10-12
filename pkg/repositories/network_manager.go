@@ -176,7 +176,10 @@ func (v *NetworkManager) ensureBridgeNotExist(spec *entities.Network) error {
 }
 
 func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *entities.Port) error {
-	logger := zap.L().With(zap.Int("pid", pid)).With(zap.String("name", port.Name))
+	logger := zap.L().
+		With(zap.Int("pid", pid)).
+		With(zap.String("name", port.Name)).
+		With(zap.String("hardware_address", port.HardwareAddr.String()))
 
 	logger.Debug("ensuring port is attached")
 
@@ -207,10 +210,6 @@ func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *
 		attrs.Flags = attrs.Flags | net.FlagUp
 		attrs.MasterIndex = bridge.Attrs().Index
 
-		if port.HardwareAddr != nil {
-			attrs.HardwareAddr = port.HardwareAddr
-		}
-
 		link = &netlink.Veth{
 			LinkAttrs:     attrs,
 			PeerName:      port.Name,
@@ -224,6 +223,10 @@ func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *
 
 	peer, err := v.findLinkWithHandler(containerNetlinkHandler, port.Name)
 	if err != nil {
+		return err
+	}
+
+	if err := containerNetlinkHandler.LinkSetHardwareAddr(peer, port.HardwareAddr); err != nil {
 		return err
 	}
 
