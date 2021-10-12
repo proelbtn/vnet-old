@@ -107,16 +107,18 @@ func (v *WritableContainerVolume) ToEntity() *entities.ContainerVolume {
 }
 
 type WritablePort struct {
-	Name      string
-	Network   string
-	Addresses []*net.IPNet
+	Name            string
+	Network         string
+	HardwareAddress net.HardwareAddr
+	Addresses       []*net.IPNet
 }
 
-func NewWritablePort(name string, network string, addresses []string) (*WritablePort, error) {
+func NewWritablePort(name string, network string, hardwareAddr []byte, addresses []string) (*WritablePort, error) {
 	port := &WritablePort{
-		Name:      name,
-		Network:   network,
-		Addresses: make([]*net.IPNet, len(addresses)),
+		Name:            name,
+		Network:         network,
+		HardwareAddress: net.HardwareAddr(hardwareAddr),
+		Addresses:       make([]*net.IPNet, len(addresses)),
 	}
 
 	for i := range addresses {
@@ -133,9 +135,17 @@ func NewWritablePort(name string, network string, addresses []string) (*Writable
 func (v *WritablePort) ToEntity(networks []*entities.Network) (*entities.Port, error) {
 	for _, network := range networks {
 		if v.Network == network.Name {
+			opts := []entities.NewPortOpts{
+				entities.WithIPAddresses(v.Addresses),
+			}
+
+			if v.HardwareAddress != nil {
+				opts = append(opts, entities.WithHardwareAddress(v.HardwareAddress))
+			}
+
 			return entities.NewPort(
 				v.Name, network,
-				entities.WithIPAddresses(v.Addresses),
+				opts...,
 			)
 		}
 	}
