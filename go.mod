@@ -56,3 +56,5 @@ require (
 	github.com/containerd/console v1.0.3
 	github.com/mattn/go-shellwords v1.0.12
 )
+
+require github.com/Masterminds/semver v1.5.0 // indirect

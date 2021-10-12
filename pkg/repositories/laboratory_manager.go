@@ -2,9 +2,14 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"syscall"
 
+	"github.com/Masterminds/semver"
 	"github.com/proelbtn/vnet/pkg/entities"
+	"github.com/proelbtn/vnet/pkg/errors"
 	"github.com/proelbtn/vnet/pkg/usecases/managers"
 	"go.uber.org/zap"
 )
@@ -29,7 +34,72 @@ func (v *LaboratoryManager) getLogger(lab *entities.Laboratory) *zap.Logger {
 	)
 }
 
-func (v *LaboratoryManager) checkKernelParameters() error {
+func (v *LaboratoryManager) getKernelVersion() (*semver.Version, error) {
+	uname := &syscall.Utsname{}
+	syscall.Uname(uname)
+
+	var release string
+	for _, c := range uname.Release {
+		release += string(int(c))
+	}
+
+	return semver.NewVersion(release)
+}
+
+func (v *LaboratoryManager) checkKernelVersion(constraint string) (bool, error) {
+	c, err := semver.NewConstraint(constraint)
+	if err != nil {
+		return false, err
+	}
+
+	version, err := v.getKernelVersion()
+	if err != nil {
+		return false, err
+	}
+
+	return c.Check(version), nil
+}
+
+func (v *LaboratoryManager) checkKernelModule(module string) (bool, error) {
+	path := fmt.Sprintf("/sys/module/%s", module)
+
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, errors.ErrNotFound
+		}
+		return false, err
+	}
+
+	if info.Mode()&os.ModeDir != 0 {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (v *LaboratoryManager) checkKernelModules(modules []string) (bool, error) {
+	for _, module := range modules {
+		if verdict, err := v.checkKernelModule(module); !verdict {
+			return verdict, err
+		}
+	}
+	return true, nil
+}
+
+func (v *LaboratoryManager) checkPreRequisites(lab *entities.Laboratory) (bool, error) {
+	if verdict, err := v.checkKernelVersion(lab.PreRequisites.KernelVersion); !verdict {
+		return verdict, err
+	}
+
+	if verdict, err := v.checkKernelModules(lab.PreRequisites.Modules); !verdict {
+		return verdict, err
+	}
+
+	return true, nil
+}
+
+func (v *LaboratoryManager) ensureKernelParameters() error {
 	params := []struct {
 		key   string
 		value []byte
@@ -59,9 +129,15 @@ func (v *LaboratoryManager) Start(ctx context.Context, lab *entities.Laboratory)
 
 	logger.Debug("starting Laboratory")
 
+	logger.Debug("checking prerequisites")
+	if verdict, err := v.checkPreRequisites(lab); err != nil {
+		return err
+	} else if !verdict {
+		return errors.ErrInvalidType
+	}
+
 	logger.Debug("checking kernel parameters")
-	err := v.checkKernelParameters()
-	if err != nil {
+	if err := v.ensureKernelParameters(); err != nil {
 		return err
 	}
 
