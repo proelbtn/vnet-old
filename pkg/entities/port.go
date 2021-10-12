@@ -57,7 +57,7 @@ func WithIPAddresses(addrs []*net.IPNet) NewPortOpts {
 
 func WithHardwareAddress(hardwareAddr net.HardwareAddr) NewPortOpts {
 	return func(port *Port) error {
-		if len(hardwareAddr) == 6 {
+		if len(hardwareAddr) != 6 {
 			return errors.New("invalid hardware address length")
 		}
 
