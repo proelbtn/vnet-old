@@ -207,6 +207,10 @@ func (v *NetworkManager) ensurePortAttached(ctx context.Context, pid int, port *
 		attrs.Flags = attrs.Flags | net.FlagUp
 		attrs.MasterIndex = bridge.Attrs().Index
 
+		if port.HardwareAddr != nil {
+			attrs.HardwareAddr = port.HardwareAddr
+		}
+
 		link = &netlink.Veth{
 			LinkAttrs:     attrs,
 			PeerName:      port.Name,
