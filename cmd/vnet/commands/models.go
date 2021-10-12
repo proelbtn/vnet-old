@@ -1,7 +1,11 @@
 package commands
 
 import (
+	"errors"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/proelbtn/vnet/pkg/usecases"
 )
@@ -61,13 +65,46 @@ func (v *Container) ToWritableContainer() (*usecases.WritableContainer, error) {
 }
 
 type Port struct {
-	Name      string   `yaml:"name"`
-	Network   string   `yaml:"network"`
-	Addresses []string `yaml:"addresses"`
+	Name       string   `yaml:"name"`
+	Network    string   `yaml:"network"`
+	MacAddress string   `yaml:"mac"`
+	Addresses  []string `yaml:"addresses"`
+}
+
+func (v *Port) parseMacAddress() ([]byte, error) {
+	matched, err := regexp.MatchString("[[:xdigit:]]{2}(:[[:xdigit:]]{2}){5}", v.MacAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	if !matched {
+		return nil, errors.New("")
+	}
+
+	addr := []byte{}
+	for _, p := range strings.Split(v.MacAddress, ":") {
+		v, err := strconv.ParseUint(p, 16, 8)
+		if err != nil {
+			return nil, err
+		}
+
+		addr = append(addr, byte(v))
+	}
+
+	return addr, nil
 }
 
 func (v *Port) ToWritablePort() (*usecases.WritablePort, error) {
-	return usecases.NewWritablePort(v.Name, v.Network, v.Addresses)
+	var mac []byte = nil
+	if v.MacAddress != "" {
+		addr, err := v.parseMacAddress()
+		if err != nil {
+			return nil, err
+		}
+		mac = addr
+	}
+
+	return usecases.NewWritablePort(v.Name, v.Network, mac, v.Addresses)
 }
 
 type ContainerVolume struct {

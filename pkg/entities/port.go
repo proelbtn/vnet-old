@@ -1,23 +1,26 @@
 package entities
 
 import (
+	"errors"
 	"fmt"
 	"net"
 )
 
 type Port struct {
-	Name      string
-	Network   *Network
-	Container *Container
-	IPAddrs   []*net.IPNet
+	Name         string
+	Network      *Network
+	Container    *Container
+	HardwareAddr net.HardwareAddr
+	IPAddrs      []*net.IPNet
 }
 
 type NewPortOpts func(*Port) error
 
 func NewPort(name string, network *Network, options ...NewPortOpts) (*Port, error) {
 	port := &Port{
-		Name:    name,
-		Network: network,
+		Name:         name,
+		Network:      network,
+		HardwareAddr: nil,
 	}
 
 	for _, option := range options {
@@ -48,6 +51,17 @@ func WithIPAddresses(addrs []*net.IPNet) NewPortOpts {
 				return err
 			}
 		}
+		return nil
+	}
+}
+
+func WithHardwareAddress(hardwareAddr net.HardwareAddr) NewPortOpts {
+	return func(port *Port) error {
+		if len(hardwareAddr) != 6 {
+			return errors.New("invalid hardware address length")
+		}
+
+		port.HardwareAddr = net.HardwareAddr(hardwareAddr)
 		return nil
 	}
 }
